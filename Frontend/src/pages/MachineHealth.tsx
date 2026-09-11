@@ -126,6 +126,31 @@ export function MachineHealth() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const seedDemoSeries = useCallback(async (machineId: string) => {
+    const scenarios: Array<'HEALTHY' | 'WARNING' | 'CRITICAL'> = [
+      'HEALTHY',
+      'HEALTHY',
+      'HEALTHY',
+      'WARNING',
+      'HEALTHY',
+      'WARNING',
+      'CRITICAL',
+      'WARNING',
+      'HEALTHY',
+      'HEALTHY',
+      'WARNING',
+      'HEALTHY',
+      'CRITICAL',
+      'WARNING',
+      'HEALTHY',
+      'HEALTHY',
+    ]
+
+    for (const scenario of scenarios) {
+      await simulateMachineData(scenario, machineId)
+    }
+  }, [])
+
   const loadData = useCallback(async (machineId = selectedMachineId) => {
     setLoading(true)
     setError(null)
@@ -140,9 +165,16 @@ export function MachineHealth() {
       setSelectedMachineId(nextMachineId)
 
       if (loadedMachines.length > 0) {
-        setMetrics(await getMetrics(nextMachineId))
+        const loadedMetrics = await getMetrics(nextMachineId)
+
+        if (loadedMetrics.history.length < 8) {
+          await seedDemoSeries(nextMachineId)
+          setMetrics(await getMetrics(nextMachineId))
+        } else {
+          setMetrics(loadedMetrics)
+        }
       } else {
-        await simulateMachineData('HEALTHY', nextMachineId)
+        await seedDemoSeries(nextMachineId)
         const seededMachines = await getMachines()
         setMachines(seededMachines)
         setMetrics(await getMetrics(nextMachineId))
@@ -152,7 +184,7 @@ export function MachineHealth() {
     } finally {
       setLoading(false)
     }
-  }, [selectedMachineId])
+  }, [seedDemoSeries, selectedMachineId])
 
   useEffect(() => {
     void loadData()
