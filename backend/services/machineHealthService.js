@@ -1,7 +1,9 @@
 const Machine = require('../models/Machine');
 const HealthRecord = require('../models/HealthRecord');
+const mongoose = require('mongoose');
 const { extractFeatures } = require('./featureExtractionService');
 const { mockPredict } = require('./aiMachineHealthService');
+const memoryStore = require('./inMemoryMachineHealthStore');
 
 function machineStatusFromAiStatus(status) {
   if (status === 'red') {
@@ -55,6 +57,11 @@ function createMachineHealthService(dependencies = {}) {
   const HealthRecordModel = dependencies.HealthRecordModel || HealthRecord;
   const featureExtractor = dependencies.featureExtractor || extractFeatures;
   const aiPredict = dependencies.aiPredict || mockPredict;
+  const store = dependencies.store || memoryStore;
+
+  function useMemoryStore() {
+    return dependencies.useMemoryStore === true || (!dependencies.MachineModel && mongoose.connection.readyState !== 1);
+  }
 
   async function processMachineData(payload) {
     validatePayload(payload);
@@ -69,21 +76,13 @@ function createMachineHealthService(dependencies = {}) {
         }
       : await aiPredict(features);
 
-    const machine = await MachineModel.findOneAndUpdate(
-      { machineId },
-      {
-        $set: {
-          name: payload.name || `Machine ${machineId}`,
-          zone: payload.zone || 'Unassigned Zone',
-          status: machineStatusFromAiStatus(prediction.status),
-          lastSeen: timestamp,
-        },
-        $setOnInsert: { machineId },
-      },
-      { new: true, upsert: true, runValidators: true }
-    );
-
-    const record = await HealthRecordModel.create({
+    const machineData = {
+      name: payload.name || `Machine ${machineId}`,
+      zone: payload.zone || 'Unassigned Zone',
+      status: machineStatusFromAiStatus(prediction.status),
+      lastSeen: timestamp,
+    };
+    const recordData = {
       machineId,
       timestamp,
       temperature: Number(payload.temperature),
@@ -94,7 +93,19 @@ function createMachineHealthService(dependencies = {}) {
       vibrationPreview: payload.vibration.slice(0, 128),
       healthScore: prediction.health_score,
       status: prediction.status,
-    });
+    };
+
+    const machine = useMemoryStore()
+      ? await store.upsertMachine(machineId, machineData)
+      : await MachineModel.findOneAndUpdate(
+          { machineId },
+          { $set: machineData, $setOnInsert: { machineId } },
+          { new: true, upsert: true, runValidators: true }
+        );
+
+    const record = useMemoryStore()
+      ? await store.createHealthRecord(recordData)
+      : await HealthRecordModel.create(recordData);
 
     return {
       machine,
@@ -105,18 +116,34 @@ function createMachineHealthService(dependencies = {}) {
   }
 
   async function getMachines() {
+    if (useMemoryStore()) {
+      return store.findMachines();
+    }
+
     return MachineModel.find().sort({ machineId: 1 });
   }
 
   async function getMachine(machineId) {
+    if (useMemoryStore()) {
+      return store.findMachine(machineId);
+    }
+
     return MachineModel.findOne({ machineId });
   }
 
   async function getLatestHealth(machineId) {
+    if (useMemoryStore()) {
+      return store.findLatestHealth(machineId);
+    }
+
     return HealthRecordModel.findOne({ machineId }).sort({ timestamp: -1 });
   }
 
   async function getHistory(machineId, query = {}) {
+    if (useMemoryStore()) {
+      return store.findHistory(machineId, query);
+    }
+
     const filters = { machineId };
 
     if (query.from || query.to) {

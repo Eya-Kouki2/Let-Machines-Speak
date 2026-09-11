@@ -142,7 +142,10 @@ export function MachineHealth() {
       if (loadedMachines.length > 0) {
         setMetrics(await getMetrics(nextMachineId))
       } else {
-        setMetrics(null)
+        await simulateMachineData('HEALTHY', nextMachineId)
+        const seededMachines = await getMachines()
+        setMachines(seededMachines)
+        setMetrics(await getMetrics(nextMachineId))
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load Machine Health data')
