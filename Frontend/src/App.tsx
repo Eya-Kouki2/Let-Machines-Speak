@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
+import { MachineHealth } from './pages/MachineHealth'
 import { UnderConstruction } from './pages/UnderConstruction'
 
 const HASH_TO_TAB: Record<string, string> = {
   home:      'Home',
   dashboard: 'Dashboard',
-  machines:  'Machines',
+  machines:  'Machine Health',
+  'machine-health': 'Machine Health',
   safety:    'Safety',
   alerts:    'Alerts',
   reports:   'Reports',
@@ -34,9 +36,8 @@ function App() {
     switch (activeTab) {
       case 'Home':
         return <Home />
-      // ── Add real pages here as they are built ──
-      // case 'Dashboard':
-      //   return <Dashboard />
+      case 'Machine Health':
+        return <MachineHealth />
       default:
         return <UnderConstruction pageName={activeTab} />
     }

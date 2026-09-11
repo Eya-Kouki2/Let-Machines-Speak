@@ -61,7 +61,7 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
       )
     },
     {
-      name: 'Machines',
+      name: 'Machine Health',
       href: '#machines',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
