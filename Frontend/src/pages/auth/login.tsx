@@ -127,7 +127,7 @@ export function Login({ onLogin, onForgotPassword, onSignUp }: LoginProps) {
                 fontWeight: 500
               }}
             >
-              Forgot Password?
+              
             </button>
           </div>
 
@@ -183,7 +183,7 @@ export function Login({ onLogin, onForgotPassword, onSignUp }: LoginProps) {
                 fontWeight: 500
               }}
             >
-              Don't have account?
+             
             </button>
           </div>
         </form>

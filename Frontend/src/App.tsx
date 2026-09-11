@@ -4,8 +4,7 @@ import { Home } from './pages/Home'
 import { Profile } from './pages/Profile'
 import { Login } from './pages/auth/login'
 import { SignUp } from './pages/auth/signup'
-import { ForgotPassword } from './pages/auth/forgetpassword'
-import { ResetPassword } from './pages/auth/resetpassword'
+
 import { UnderConstruction } from './pages/UnderConstruction'
 
 const HASH_TO_TAB: Record<string, string> = {
@@ -86,7 +85,7 @@ function App() {
     )
   }
 
-  if (screen === 'forgot') {
+  /*if (screen === 'forgot') {
     return (
       <ForgotPassword
         onSendReset={() => setScreen('reset')}
@@ -103,7 +102,7 @@ function App() {
       />
     )
   }
-
+*/
   const renderPage = () => {
     switch (activeTab) {
       case 'Home':
