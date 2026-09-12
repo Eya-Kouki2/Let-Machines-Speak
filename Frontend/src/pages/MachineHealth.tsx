@@ -391,6 +391,9 @@ export function MachineHealth() {
     return Array.from(new Set(machines.map((m) => m.zone).filter(Boolean)))
   }, [machines])
 
+  // Active thresholds for currently selected machine (top-level hook)
+  const activeThresholds = useMemo(() => getSafeThresholds(selectedMachine), [selectedMachine])
+
   // Export Fleet Report
   const handleDownloadFleet = () => {
     const reportItems = machines.map((m) => ({
@@ -737,7 +740,6 @@ export function MachineHealth() {
   const tempVal = latestHealth?.temperature ?? 48
   const curVal = latestHealth?.current ?? 4.2
   const anomalyScore = latestHealth ? Number((1 - currentHealthScore / 100).toFixed(2)) : 0.15
-  const activeThresholds = useMemo(() => getSafeThresholds(selectedMachine), [selectedMachine])
 
   // Prepare Health History Points for Chart.js
   const historyLabels = history.map((h) => {
