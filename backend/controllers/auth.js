@@ -1,115 +1,62 @@
+﻿const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const { getJwtSecret } = require('../middleware/authMiddleware');
 
-// ==========================
-// SIGN UP
-// ==========================
-exports.signUp = async (req, res) => {
+function normalizeRole(role) {
+  if (role === 'Admin') return 'ADMIN';
+  if (role === 'Ouvrier') return 'OPERATOR';
+  return role || 'VIEWER';
+}
+
+function signToken(user) {
+  return jwt.sign(
+    { role: user.role, email: user.email },
+    getJwtSecret(),
+    { subject: user._id.toString(), expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+}
+
+exports.signUp = async (req, res, next) => {
   try {
-    const {
-      email,
-      password,
-      role,
-      firstName,
-      lastName,
-      age,
-      yearsOfExperience,
-      workZone
-    } = req.body;
-
-    // Vérifier si l'utilisateur existe déjà
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      return res.status(400).json({
-        message: "Cet email est déjà utilisé."
-      });
-    }
-
-    // Vérifier si c'est un ouvrier
-    const isWorker = role === "Ouvrier";
-
-    // Créer le nouvel utilisateur
-    const newUser = new User({
-      email,
-      password,
-      role,
-      firstName,
-      lastName,
-
-      age: isWorker ? age : undefined,
-      yearsOfExperience: isWorker ? yearsOfExperience : undefined,
-      workZone: isWorker ? workZone : undefined
+    const user = await User.create({
+      name: req.body.name || [req.body.firstName, req.body.lastName].filter(Boolean).join(' '),
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      password: req.body.password,
+      role: normalizeRole(req.body.role),
+      age: req.body.age,
+      yearsOfExperience: req.body.yearsOfExperience,
+      workZone: req.body.workZone,
     });
-
-    // Sauvegarder dans MongoDB
-    await newUser.save();
-
-    res.status(201).json({
-      message: "Utilisateur créé avec succès !",
-      user: {
-        id: newUser._id,
-        email: newUser.email,
-        role: newUser.role,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName
-      }
-    });
-
+    const token = signToken(user);
+    const safeUser = user.toSafeObject();
+    return res.status(201).json({ success: true, data: { token, user: safeUser }, token, user: safeUser });
   } catch (error) {
-    console.error("Erreur signup :", error);
-
-    res.status(500).json({
-      message: "Erreur lors de l'inscription.",
-      error: error.message
-    });
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Email is already used' });
+    }
+    return next(error);
   }
 };
 
-
-// ==========================
-// LOGIN
-// ==========================
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-
-    // Chercher l'utilisateur dans MongoDB
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(401).json({
-        message: "Email ou mot de passe incorrect."
-      });
+    const user = await User.findOne({ email: String(req.body.email || '').toLowerCase() }).select('+password');
+    if (!user || !(await user.comparePassword(req.body.password || ''))) {
+      return res.status(401).json({ success: false, message: 'Email or password is incorrect' });
     }
-
-    // Vérifier le mot de passe
-    if (user.password !== password) {
-      return res.status(401).json({
-        message: "Email ou mot de passe incorrect."
-      });
+    if (!user.active) {
+      return res.status(403).json({ success: false, message: 'User account is disabled' });
     }
-
-    // Token temporaire
-    const token = "session-token-id-" + user._id;
-
-    // Réponse envoyée au frontend
-    res.status(200).json({
-      message: "Connexion réussie !",
-      token,
-
-      user: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role
-      }
-    });
-
+    const token = signToken(user);
+    const safeUser = user.toSafeObject();
+    return res.status(200).json({ success: true, data: { token, user: safeUser }, token, user: safeUser });
   } catch (error) {
-    console.error("Erreur login :", error);
-
-    res.status(500).json({
-      message: "Erreur serveur lors de la connexion.",
-      error: error.message
-    });
+    return next(error);
   }
+};
+
+exports.me = async (req, res) => {
+  return res.json({ success: true, data: req.user.toSafeObject() });
 };

@@ -7,6 +7,10 @@ import { SignUp } from './pages/auth/signup'
 import { MachineHealth } from './pages/MachineHealth'
 import { UnderConstruction } from './pages/UnderConstruction'
 import { SafetyMonitoringPage } from './pages/worker-safety/SafetyMonitoringPage'
+import { UserManagement } from './pages/admin/UserManagement'
+import { MachineManagement } from './pages/admin/MachineManagement'
+import { getCurrentUser } from './services/authApi'
+import type { User } from './types/admin'
 
 const HASH_TO_TAB: Record<string, string> = {
   home:      'Home',
@@ -17,6 +21,8 @@ const HASH_TO_TAB: Record<string, string> = {
   alerts:    'Alerts',
   reports:   'Reports',
   profile:   'Profile',
+  users: 'Users',
+  'machine-management': 'Machine Management',
 }
 
 function tabFromHash(): string {
@@ -27,7 +33,26 @@ function tabFromHash(): string {
 function App() {
   const [screen, setScreen] = useState<'home' | 'login' | 'signup' | 'forgot' | 'reset'>('home')
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => !!localStorage.getItem('token'))
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try { return JSON.parse(localStorage.getItem('user') || 'null') as User | null } catch { return null }
+  })
   const [activeTab, setActiveTab] = useState<string>(tabFromHash)
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) return
+    getCurrentUser()
+      .then((user) => {
+        setCurrentUser(user)
+        setIsLoggedIn(true)
+        localStorage.setItem('user', JSON.stringify(user))
+      })
+      .catch(() => {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        setCurrentUser(null)
+        setIsLoggedIn(false)
+      })
+  }, [])
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -51,6 +76,7 @@ function App() {
   }
 
   const handleLoginSuccess = () => {
+    try { setCurrentUser(JSON.parse(localStorage.getItem('user') || 'null') as User | null) } catch { setCurrentUser(null) }
     setIsLoggedIn(true)
     setScreen('home')
     // ensure Home tab is selected and hash updated so navbar + routing react
@@ -60,6 +86,7 @@ function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false)
+    setCurrentUser(null)
     setScreen('home')
     setActiveTab('Home')
   }
@@ -117,6 +144,10 @@ function App() {
         return <SafetyMonitoringPage />
       case 'Alerts':
         return <SafetyMonitoringPage />
+      case 'Users':
+        return currentUser?.role === 'ADMIN' ? <UserManagement /> : <UnderConstruction pageName="Unauthorized" />
+      case 'Machine Management':
+        return currentUser?.role === 'ADMIN' ? <MachineManagement /> : <UnderConstruction pageName="Unauthorized" />
       default:
         return <UnderConstruction pageName={activeTab} />
     }
@@ -129,6 +160,7 @@ function App() {
       onLoginClick={handleLoginClick}
       onLogout={handleLogout}
       isLoggedIn={isLoggedIn}
+      currentUser={currentUser}
     >
       {renderPage()}
     </Layout>

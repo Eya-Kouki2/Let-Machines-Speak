@@ -3332,3 +3332,24 @@ p {
   justify-content: center;
 }
 
+
+/* ============================================================
+   ADMIN MANAGEMENT PAGES
+   ============================================================ */
+.admin-page { display: flex; flex-direction: column; gap: 18px; max-width: 1280px; margin: 0 auto; }
+.admin-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-header h1 { margin: 0 0 6px; color: #0d4a2e; font-size: 34px; font-weight: 900; }
+.admin-header p { color: #4a6356; font-weight: 600; }
+.admin-card { background: rgba(255, 255, 255, 0.78); border: 1px solid rgba(17, 74, 49, 0.13); border-radius: 18px; box-shadow: 0 14px 34px rgba(14, 72, 40, 0.08); padding: 18px; overflow-x: auto; }
+.admin-input { border: 1px solid rgba(15, 83, 56, 0.22); border-radius: 12px; padding: 11px 13px; background: #ffffff; color: #0b3322; font: 700 14px/1 var(--sans); }
+.admin-form, .admin-machine-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.admin-machine-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-wide { grid-column: 1 / -1; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-table th, .admin-table td { padding: 12px 10px; border-bottom: 1px solid rgba(17, 74, 49, 0.10); text-align: left; }
+.admin-table th { color: #66786e; font-size: 11px; font-weight: 900; letter-spacing: 0.7px; text-transform: uppercase; }
+.admin-table button { margin-right: 8px; border: 1px solid rgba(15, 83, 56, 0.22); border-radius: 10px; padding: 7px 10px; background: #fff; color: #0d4a2e; cursor: pointer; font-weight: 800; }
+.admin-error { border: 1px solid rgba(239, 68, 68, 0.22); border-radius: 14px; background: rgba(254, 242, 242, 0.74); color: #b91c1c; padding: 12px 14px; font-weight: 800; }
+.admin-threshold-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: center; grid-column: 1 / -1; }
+.admin-threshold-row input { width: 100%; box-sizing: border-box; margin-top: 4px; border: 1px solid rgba(15, 83, 56, 0.18); border-radius: 10px; padding: 9px 10px; }
+@media (max-width: 900px) { .admin-form, .admin-machine-form, .admin-threshold-row { grid-template-columns: 1fr; } }

@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const machineHealthRoutes = require('./routes/machineHealthRoutes');
+const machineManagementRoutes = require('./routes/machines');
+const usersRoutes = require('./routes/users');
 const { connectDatabase } = require('./config/database');
 
 // Load environment variables (supports .env in backend folder or parent folder)
@@ -19,12 +21,14 @@ app.use(express.urlencoded({ extended: true }));
 
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
 
 // Basic Routes
 app.get('/', (req, res) => {
     res.json({ success: true, message: 'API is running...' });
 });
 
+app.use('/api/machines', machineManagementRoutes);
 app.use('/api/machines', machineHealthRoutes);
 
 app.use((req, res) => {
@@ -32,12 +36,11 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-    const statusCode = err.name === 'ValidationError' || err.message?.includes('must') ? 400 : 500;
+    const statusCode = err.name === 'ValidationError' || err.message?.includes('must') || err.message?.includes('threshold') ? 400 : 500;
     res.status(statusCode).json({
         success: false,
-        error: {
-            message: statusCode === 500 ? 'Internal server error' : err.message,
-        },
+        message: statusCode === 500 ? 'Internal server error' : err.message,
+        error: { message: statusCode === 500 ? 'Internal server error' : err.message },
     });
 });
 

@@ -17,6 +17,26 @@ function machineStatusFromAiStatus(status) {
   return 'ONLINE';
 }
 
+function statusFromThresholds(values, thresholds = {}) {
+  const checks = [
+    ['vibrationRms', values.rms],
+    ['peakAcceleration', values.peak],
+    ['temperature', values.temperature],
+    ['current', values.current],
+    ['anomalyScore', values.anomalyScore],
+  ];
+
+  if (checks.some(([key, value]) => thresholds[key] && Number(value) >= thresholds[key].critical)) {
+    return 'CRITICAL';
+  }
+
+  if (checks.some(([key, value]) => thresholds[key] && Number(value) >= thresholds[key].warning)) {
+    return 'WARNING';
+  }
+
+  return 'ONLINE';
+}
+
 function normalizeTimestamp(timestamp) {
   if (timestamp === undefined || timestamp === null) {
     return new Date();
@@ -76,10 +96,24 @@ function createMachineHealthService(dependencies = {}) {
         }
       : await aiPredict(features);
 
+    const existingMachine = useMemoryStore()
+      ? await store.findMachine(machineId)
+      : (MachineModel.findOne ? await MachineModel.findOne({ machineId }) : null);
+    const operationalStatus = existingMachine?.thresholds
+      ? statusFromThresholds({
+          rms: features.rms,
+          peak: features.peak,
+          temperature: Number(payload.temperature),
+          current: Number(payload.current),
+          anomalyScore: Number(payload.anomalyScore ?? 1 - prediction.health_score / 100),
+        }, existingMachine.thresholds)
+      : machineStatusFromAiStatus(prediction.status);
+
     const machineData = {
       name: payload.name || `Machine ${machineId}`,
       zone: payload.zone || 'Unassigned Zone',
-      status: machineStatusFromAiStatus(prediction.status),
+      type: payload.type,
+      status: operationalStatus === 'ONLINE' ? machineStatusFromAiStatus(prediction.status) : operationalStatus,
       lastSeen: timestamp,
     };
     const recordData = {
@@ -188,4 +222,5 @@ module.exports = createMachineHealthService();
 module.exports.createMachineHealthService = createMachineHealthService;
 module.exports.machineStatusFromAiStatus = machineStatusFromAiStatus;
 module.exports.normalizeTimestamp = normalizeTimestamp;
+module.exports.statusFromThresholds = statusFromThresholds;
 module.exports.validatePayload = validatePayload;

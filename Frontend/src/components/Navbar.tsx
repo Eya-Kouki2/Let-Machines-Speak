@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import type { User } from '../types/admin'
 
 export type NavMode = 'top' | 'side'
 
@@ -10,9 +11,10 @@ interface NavbarProps {
   onLoginClick?: () => void
   onLogout?: () => void
   isLoggedIn?: boolean
+  currentUser?: User | null
 }
 
-export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: externalActiveTab, onTabChange, onLoginClick, onLogout, isLoggedIn = false }: NavbarProps) {
+export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: externalActiveTab, onTabChange, onLoginClick, onLogout, isLoggedIn = false, currentUser = null }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [internalActiveTab, setInternalActiveTab] = useState('Home')
@@ -48,7 +50,7 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const navItems = [
+  const baseNavItems = [
     {
       name: 'Home',
       href: '#home',
@@ -115,10 +117,18 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
     }
   ]
 
-  const savedUser = JSON.parse(localStorage.getItem('user') || '{}')
-  const displayName = savedUser.firstName && savedUser.lastName
+  const navItems = currentUser?.role === 'ADMIN'
+    ? [
+        ...baseNavItems,
+        { name: 'Users', href: '#users', icon: baseNavItems[2].icon },
+        { name: 'Machine Management', href: '#machine-management', icon: baseNavItems[2].icon },
+      ]
+    : baseNavItems
+
+  const savedUser = currentUser || JSON.parse(localStorage.getItem('user') || '{}')
+  const displayName = savedUser.name || (savedUser.firstName && savedUser.lastName
     ? `${savedUser.firstName} ${savedUser.lastName}`
-    : savedUser.firstName || 'User Name'
+    : savedUser.firstName) || 'User Name'
   const displayRole = savedUser.role || 'Role'
 
   return (
@@ -135,8 +145,8 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
               </svg>
             </div>
             <div className="brand-title">
-              <span className="text-white">Let Machines </span>
-              <span className="text-orange energy-text">Speak</span>
+              <span className="text-white">LAB</span>
+              <span className="text-orange energy-text">ES</span>
             </div>
           </a>
 

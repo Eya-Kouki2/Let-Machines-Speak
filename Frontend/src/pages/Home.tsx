@@ -14,12 +14,12 @@ export function Home() {
                         <div className="title-glow-aura"></div>
 
                         <h1 className="hero-main-title">
-                            <span className="title-text-machines">Let machines</span>
-                            <span className="highlight-speak">Speak</span>
+                            <span className="title-text-machines">LABES</span>
+                            <span className="highlight-speak">Live AI-Based Equipment Safety</span>
                         </h1>
 
                         <h2 className="hero-sub-title">
-                            A smart system that protects machines and workers.
+                            AI-powered industrial monitoring for machines and workers.
                         </h2>
 
                         <div className="hero-accent-bar">
@@ -28,7 +28,7 @@ export function Home() {
                         </div>
 
                         <p className="hero-description">
-                            Real-time monitoring, early warnings, and safety detection — all in one place.
+                            LABES combines machine health monitoring and worker safety intelligence in one unified system.
                         </p>
 
                         <div className="hero-buttons">

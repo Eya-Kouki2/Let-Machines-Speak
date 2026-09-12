@@ -1,4 +1,77 @@
-# Let Machines Speak
+# LABES
+
+Live AI-Based Equipment Safety
+
+LABES is an AI-powered industrial monitoring platform that combines Machine Health monitoring and Worker Safety intelligence in one unified system.
+
+## Platform Management
+
+### Environment
+
+Required backend variables:
+
+```bash
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/labes
+JWT_SECRET=change-this-development-secret
+JWT_EXPIRES_IN=7d
+```
+
+Frontend:
+
+```bash
+VITE_API_BASE_URL=http://localhost:5000
+```
+
+### Authentication And Authorization
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+
+JWT tokens identify the user and role. Admin-only APIs are protected by `requireAuth` and `requireAdmin`.
+
+Roles:
+
+- `ADMIN`
+- `OPERATOR`
+- `VIEWER`
+
+### User Management
+
+Admin-only endpoints:
+
+- `GET /api/users`
+- `GET /api/users/:id`
+- `POST /api/users`
+- `PATCH /api/users/:id`
+- `DELETE /api/users/:id`
+
+Passwords are hashed with bcrypt and never returned by APIs.
+
+### Machine Management
+
+Machine identity and thresholds are stored in MongoDB.
+
+- `GET /api/machines`
+- `GET /api/machines/:id`
+- `POST /api/machines` admin only
+- `PATCH /api/machines/:id` admin only
+- `DELETE /api/machines/:id` admin only
+
+Threshold schema:
+
+```json
+{
+  "vibrationRms": { "warning": 4.5, "critical": 7.1 },
+  "peakAcceleration": { "warning": 2.0, "critical": 4.0 },
+  "temperature": { "warning": 70, "critical": 85 },
+  "current": { "warning": 8, "critical": 10 },
+  "anomalyScore": { "warning": 0.7, "critical": 0.9 }
+}
+```
+
+Backend validation enforces warning/critical ordering and anomaly score range.
 
 Smart industrial monitoring application for machine reliability and worker safety.
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { login } from '../../services/authApi'
 
 interface LoginProps {
   onLogin?: () => void
@@ -27,40 +28,15 @@ export function Login({ onLogin, onForgotPassword, onSignUp }: LoginProps) {
     event.preventDefault()
 
     try {
-      // Envoi des identifiants vers votre API backend Node.js (Port 5000)
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        // 3. Stockage de la session utilisateur dans le navigateur
-        localStorage.setItem('token', data.token)
-        // store returned profile + the email used to login
-        const userToStore = {
-          firstName: data.user?.firstName || '',
-          lastName: data.user?.lastName || '',
-          role: data.user?.role || '',
-          email
-        }
-        localStorage.setItem('user', JSON.stringify(userToStore))
-
-        alert(`Bienvenue ${data.user.firstName} !`)
-        
-        // 4. Déclenche le changement d'affichage vers la page d'accueil/dashboard
-        onLogin?.()
-        try { window.location.hash = '#home' } catch (e) { /* ignore */ }
-      } else {
-        alert(data.message || "Email ou mot de passe incorrect.")
-      }
+      const data = await login(email, password)
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      alert(`Welcome ${data.user.name || data.user.email} !`)
+      onLogin?.()
+      try { window.location.hash = '#home' } catch (e) { /* ignore */ }
     } catch (error) {
       console.error("Erreur de connexion au serveur:", error)
-      alert("Impossible de joindre le serveur backend. Vérifiez qu'il est bien démarré.")
+      alert(error instanceof Error ? error.message : "Unable to login.")
     }
   }
 

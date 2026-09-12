@@ -81,6 +81,9 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
         // store returned user so navbar/profile can read it immediately
         if (data && data.user) {
           try {
+            if (data.token) {
+              localStorage.setItem('token', data.token)
+            }
             localStorage.setItem('user', JSON.stringify(data.user))
           } catch (e) {
             // ignore storage errors
