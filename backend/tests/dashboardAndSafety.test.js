@@ -35,3 +35,23 @@ test('safety event rejects confidence outside 0-1', async () => {
 
   await assert.rejects(() => ev.validate(), /max/);
 });
+
+test('getSummary returns structured data fallback when db disconnected', async () => {
+  const { getSummary } = require('../controllers/dashboardController');
+  let result = null;
+  const mockRes = {
+    json: (payload) => {
+      result = payload;
+      return payload;
+    },
+  };
+  await getSummary({}, mockRes, (err) => {
+    throw err;
+  });
+  assert.ok(result);
+  assert.equal(result.success, true);
+  assert.ok(result.data.machines);
+  assert.ok(result.data.safety);
+  assert.ok(result.data.alerts);
+});
+

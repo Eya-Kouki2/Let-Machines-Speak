@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Layout } from './components/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Home } from './pages/Home'
 import { Dashboard } from './pages/Dashboard'
 import { Profile } from './pages/Profile'
@@ -287,7 +288,9 @@ function App() {
       isLoggedIn={isLoggedIn}
       currentUser={currentUser}
     >
-      {renderPage()}
+      <ErrorBoundary>
+        {renderPage()}
+      </ErrorBoundary>
     </Layout>
   )
 }

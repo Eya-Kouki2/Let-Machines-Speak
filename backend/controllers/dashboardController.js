@@ -28,7 +28,17 @@ async function getSummary(req, res, next) {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [machines, healthRecords, safetyEventsToday, activeAlerts, alertsToday] = await Promise.all([
+    const [
+      machines,
+      healthRecords,
+      safetyEventsToday,
+      activeViolationsCount,
+      alertsToday,
+      safetyEventsByType,
+      criticalAlerts,
+      totalActiveAlerts,
+      zonesWithActiveViolations,
+    ] = await Promise.all([
       Machine.find({}, { machineId: 1, name: 1, status: 1, zone: 1 }).lean(),
       // Latest health record per machine (status: green/yellow/red)
       HealthRecord.aggregate([
@@ -48,6 +58,9 @@ async function getSummary(req, res, next) {
         { $match: { timestamp: { $gte: todayStart } } },
         { $group: { _id: '$event', count: { $sum: 1 } } },
       ]),
+      Alert.countDocuments({ active: true, severity: 'CRITICAL' }),
+      Alert.countDocuments({ active: true }),
+      SafetyEvent.distinct('zone', { status: 'open' }),
     ]);
 
     const safetyByType = safetyEventsByType || [];
@@ -116,13 +129,8 @@ async function getSummary(req, res, next) {
 
     // Safety zones (unique zones from SafetyEvent or Machine)
     const safetyZones = [...new Set(machines.map((m) => m.zone).filter(Boolean))];
-    const zonesWithActiveViolations = await SafetyEvent.distinct('zone', { status: 'open' });
-    const activeViolations = zonesWithActiveViolations.length;
+    const activeViolations = (zonesWithActiveViolations || []).length;
     const safeZones = Math.max(0, safetyZones.length - activeViolations);
-
-    // Active alerts
-    const criticalAlerts = await Alert.countDocuments({ active: true, severity: 'CRITICAL' });
-    const totalActiveAlerts = await Alert.countDocuments({ active: true });
 
     return res.json({
       success: true,

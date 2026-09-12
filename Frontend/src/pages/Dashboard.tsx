@@ -296,7 +296,7 @@ export function Dashboard({ onTabChange }: DashboardProps = {}) {
   const trendData = trend.map((p) => p.avgScore)
 
   // Safety events by type
-  const safetyByType = summary?.safety.byType || {}
+  const safetyByType = summary?.safety?.byType ?? {}
   const safetyBarLabels = ['No Helmet', 'Restricted Zone', 'Fall Risk', 'Unsafe Dist']
   const safetyBarData = [
     safetyByType.no_helmet ?? 0,
@@ -539,7 +539,7 @@ export function Dashboard({ onTabChange }: DashboardProps = {}) {
 
           {loadingSummary ? (
             <div className="db-panel-loading">Loading attention list…</div>
-          ) : summary?.machines.attentionMachines && summary.machines.attentionMachines.length > 0 ? (
+          ) : summary?.machines?.attentionMachines && summary.machines.attentionMachines.length > 0 ? (
             <ul className="db-attention-list">
               {summary.machines.attentionMachines.map((m) => (
                 <li key={m.machineId} className="db-attention-item">
@@ -601,11 +601,11 @@ export function Dashboard({ onTabChange }: DashboardProps = {}) {
                 yUnit=" events"
               />
               <div className="db-safety-insight">
-                {summary && summary.safety.activeViolations === 0 ? (
+                {summary && summary.safety?.activeViolations === 0 ? (
                   <span className="db-insight-ok">✓ All zones compliant and secure</span>
                 ) : (
                   <span className="db-insight-warn">
-                    ⚠ {summary?.safety.activeViolations} active open violation{summary && summary.safety.activeViolations > 1 ? 's' : ''}
+                    ⚠ {summary?.safety?.activeViolations ?? 0} active open violation{(summary?.safety?.activeViolations ?? 0) > 1 ? 's' : ''}
                   </span>
                 )}
               </div>

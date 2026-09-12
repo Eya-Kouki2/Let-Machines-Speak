@@ -54,35 +54,66 @@ function getConnectionStatus(lastSeen?: string | null, status?: string): {
   return { state: 'Offline', color: '#64748b' }
 }
 
+const DEFAULT_THRESHOLDS = {
+  vibrationRms: { warning: 4.5, critical: 7.1 },
+  peakAcceleration: { warning: 2.5, critical: 4.0 },
+  temperature: { warning: 65, critical: 85 },
+  current: { warning: 28, critical: 35 },
+  anomalyScore: { warning: 0.6, critical: 0.8 },
+}
+
+export function getSafeThresholds(machine?: Partial<EnrichedMachine> | null) {
+  return {
+    vibrationRms: {
+      warning: machine?.thresholds?.vibrationRms?.warning ?? DEFAULT_THRESHOLDS.vibrationRms.warning,
+      critical: machine?.thresholds?.vibrationRms?.critical ?? DEFAULT_THRESHOLDS.vibrationRms.critical,
+    },
+    peakAcceleration: {
+      warning: machine?.thresholds?.peakAcceleration?.warning ?? DEFAULT_THRESHOLDS.peakAcceleration.warning,
+      critical: machine?.thresholds?.peakAcceleration?.critical ?? DEFAULT_THRESHOLDS.peakAcceleration.critical,
+    },
+    temperature: {
+      warning: machine?.thresholds?.temperature?.warning ?? DEFAULT_THRESHOLDS.temperature.warning,
+      critical: machine?.thresholds?.temperature?.critical ?? DEFAULT_THRESHOLDS.temperature.critical,
+    },
+    current: {
+      warning: machine?.thresholds?.current?.warning ?? DEFAULT_THRESHOLDS.current.warning,
+      critical: machine?.thresholds?.current?.critical ?? DEFAULT_THRESHOLDS.current.critical,
+    },
+    anomalyScore: {
+      warning: machine?.thresholds?.anomalyScore?.warning ?? DEFAULT_THRESHOLDS.anomalyScore.warning,
+      critical: machine?.thresholds?.anomalyScore?.critical ?? DEFAULT_THRESHOLDS.anomalyScore.critical,
+    },
+  }
+}
+
 function getMachineStatus(
   machine: EnrichedMachine,
   health?: HealthRecord | null,
 ): 'Healthy' | 'Warning' | 'Critical' | 'Offline' {
   if (machine.status === 'OFFLINE') return 'Offline'
 
-  const t = machine.thresholds
+  const t = getSafeThresholds(machine)
   const rms = health?.rms ?? machine.latestHealth?.rms
   const temp = health?.temperature ?? machine.latestHealth?.temperature
   const cur = health?.current ?? machine.latestHealth?.current
   const peak = health?.peak ?? machine.latestHealth?.peak
 
-  if (t) {
-    if (
-      (rms !== undefined && rms >= t.vibrationRms.critical) ||
-      (peak !== undefined && peak >= t.peakAcceleration.critical) ||
-      (temp !== undefined && temp >= t.temperature.critical) ||
-      (cur !== undefined && cur >= t.current.critical)
-    ) {
-      return 'Critical'
-    }
-    if (
-      (rms !== undefined && rms >= t.vibrationRms.warning) ||
-      (peak !== undefined && peak >= t.peakAcceleration.warning) ||
-      (temp !== undefined && temp >= t.temperature.warning) ||
-      (cur !== undefined && cur >= t.current.warning)
-    ) {
-      return 'Warning'
-    }
+  if (
+    (rms !== undefined && rms >= t.vibrationRms.critical) ||
+    (peak !== undefined && peak >= t.peakAcceleration.critical) ||
+    (temp !== undefined && temp >= t.temperature.critical) ||
+    (cur !== undefined && cur >= t.current.critical)
+  ) {
+    return 'Critical'
+  }
+  if (
+    (rms !== undefined && rms >= t.vibrationRms.warning) ||
+    (peak !== undefined && peak >= t.peakAcceleration.warning) ||
+    (temp !== undefined && temp >= t.temperature.warning) ||
+    (cur !== undefined && cur >= t.current.warning)
+  ) {
+    return 'Warning'
   }
 
   if (machine.status === 'CRITICAL') return 'Critical'
@@ -403,14 +434,15 @@ export function MachineHealth() {
       detectedCondition: getMachineStatus(selectedMachine, latestHealth),
     }
 
+    const t = getSafeThresholds(selectedMachine)
     const metrics = [
       {
         key: 'rms' as const,
         label: 'Vibration RMS',
         value: snapshot.rms,
         unit: 'mm/s',
-        baseline: selectedMachine.thresholds.vibrationRms.warning * 0.6,
-        severity: snapshot.rms >= selectedMachine.thresholds.vibrationRms.critical ? ('Critical' as const) : ('Normal' as const),
+        baseline: t.vibrationRms.warning * 0.6,
+        severity: snapshot.rms >= t.vibrationRms.critical ? ('Critical' as const) : ('Normal' as const),
       },
       {
         key: 'temperature' as const,
@@ -418,7 +450,7 @@ export function MachineHealth() {
         value: snapshot.temperature,
         unit: '°C',
         baseline: 45,
-        severity: snapshot.temperature >= selectedMachine.thresholds.temperature.critical ? ('Critical' as const) : ('Normal' as const),
+        severity: snapshot.temperature >= t.temperature.critical ? ('Critical' as const) : ('Normal' as const),
       },
       {
         key: 'current' as const,
@@ -426,7 +458,7 @@ export function MachineHealth() {
         value: snapshot.current,
         unit: 'A',
         baseline: 5,
-        severity: snapshot.current >= selectedMachine.thresholds.current.critical ? ('Critical' as const) : ('Normal' as const),
+        severity: snapshot.current >= t.current.critical ? ('Critical' as const) : ('Normal' as const),
       },
     ]
 
@@ -705,6 +737,7 @@ export function MachineHealth() {
   const tempVal = latestHealth?.temperature ?? 48
   const curVal = latestHealth?.current ?? 4.2
   const anomalyScore = latestHealth ? Number((1 - currentHealthScore / 100).toFixed(2)) : 0.15
+  const activeThresholds = useMemo(() => getSafeThresholds(selectedMachine), [selectedMachine])
 
   // Prepare Health History Points for Chart.js
   const historyLabels = history.map((h) => {
@@ -803,7 +836,7 @@ export function MachineHealth() {
             <div className="mh-ai-stat">
               <span>Anomaly Score</span>
               <strong>{anomalyScore.toFixed(2)}</strong>
-              <small>Tolerance: {selectedMachine.thresholds.anomalyScore.warning}</small>
+              <small>Tolerance: {activeThresholds.anomalyScore.warning}</small>
             </div>
             <div className="mh-ai-stat">
               <span>Model Confidence</span>
@@ -832,8 +865,8 @@ export function MachineHealth() {
             label="Vibration RMS"
             value={rmsVal}
             unit="mm/s"
-            warningThreshold={selectedMachine.thresholds.vibrationRms.warning}
-            criticalThreshold={selectedMachine.thresholds.vibrationRms.critical}
+            warningThreshold={activeThresholds.vibrationRms.warning}
+            criticalThreshold={activeThresholds.vibrationRms.critical}
             precision={2}
           />
 
@@ -842,8 +875,8 @@ export function MachineHealth() {
             label="Peak Acceleration"
             value={peakVal}
             unit="g"
-            warningThreshold={selectedMachine.thresholds.peakAcceleration.warning}
-            criticalThreshold={selectedMachine.thresholds.peakAcceleration.critical}
+            warningThreshold={activeThresholds.peakAcceleration.warning}
+            criticalThreshold={activeThresholds.peakAcceleration.critical}
             precision={2}
           />
 
@@ -852,8 +885,8 @@ export function MachineHealth() {
             label="Temperature"
             value={tempVal}
             unit="°C"
-            warningThreshold={selectedMachine.thresholds.temperature.warning}
-            criticalThreshold={selectedMachine.thresholds.temperature.critical}
+            warningThreshold={activeThresholds.temperature.warning}
+            criticalThreshold={activeThresholds.temperature.critical}
             precision={1}
           />
 
@@ -862,8 +895,8 @@ export function MachineHealth() {
             label="Current Draw"
             value={curVal}
             unit="A"
-            warningThreshold={selectedMachine.thresholds.current.warning}
-            criticalThreshold={selectedMachine.thresholds.current.critical}
+            warningThreshold={activeThresholds.current.warning}
+            criticalThreshold={activeThresholds.current.critical}
             precision={2}
           />
 
@@ -872,8 +905,8 @@ export function MachineHealth() {
             label="AI Anomaly Score"
             value={anomalyScore}
             unit=""
-            warningThreshold={selectedMachine.thresholds.anomalyScore.warning}
-            criticalThreshold={selectedMachine.thresholds.anomalyScore.critical}
+            warningThreshold={activeThresholds.anomalyScore.warning}
+            criticalThreshold={activeThresholds.anomalyScore.critical}
             maxScale={1.0}
             precision={2}
           />
@@ -908,12 +941,12 @@ export function MachineHealth() {
                 ]}
                 thresholds={[
                   {
-                    value: selectedMachine.thresholds.vibrationRms.warning,
+                    value: activeThresholds.vibrationRms.warning,
                     label: 'Warning',
                     color: LABES_COLORS.warning,
                   },
                   {
-                    value: selectedMachine.thresholds.vibrationRms.critical,
+                    value: activeThresholds.vibrationRms.critical,
                     label: 'Critical',
                     color: LABES_COLORS.danger,
                   },
@@ -1018,28 +1051,28 @@ export function MachineHealth() {
         <div className="mh-config-grid">
           <div className="mh-config-item">
             <span>Vibration RMS</span>
-            <strong>Warn: {selectedMachine.thresholds.vibrationRms.warning} mm/s</strong>
-            <small>Crit: {selectedMachine.thresholds.vibrationRms.critical} mm/s</small>
+            <strong>Warn: {activeThresholds.vibrationRms.warning} mm/s</strong>
+            <small>Crit: {activeThresholds.vibrationRms.critical} mm/s</small>
           </div>
           <div className="mh-config-item">
             <span>Peak Acceleration</span>
-            <strong>Warn: {selectedMachine.thresholds.peakAcceleration.warning} g</strong>
-            <small>Crit: {selectedMachine.thresholds.peakAcceleration.critical} g</small>
+            <strong>Warn: {activeThresholds.peakAcceleration.warning} g</strong>
+            <small>Crit: {activeThresholds.peakAcceleration.critical} g</small>
           </div>
           <div className="mh-config-item">
             <span>Temperature</span>
-            <strong>Warn: {selectedMachine.thresholds.temperature.warning} °C</strong>
-            <small>Crit: {selectedMachine.thresholds.temperature.critical} °C</small>
+            <strong>Warn: {activeThresholds.temperature.warning} °C</strong>
+            <small>Crit: {activeThresholds.temperature.critical} °C</small>
           </div>
           <div className="mh-config-item">
             <span>Current Draw</span>
-            <strong>Warn: {selectedMachine.thresholds.current.warning} A</strong>
-            <small>Crit: {selectedMachine.thresholds.current.critical} A</small>
+            <strong>Warn: {activeThresholds.current.warning} A</strong>
+            <small>Crit: {activeThresholds.current.critical} A</small>
           </div>
           <div className="mh-config-item">
             <span>Anomaly Score</span>
-            <strong>Warn: {selectedMachine.thresholds.anomalyScore.warning}</strong>
-            <small>Crit: {selectedMachine.thresholds.anomalyScore.critical}</small>
+            <strong>Warn: {activeThresholds.anomalyScore.warning}</strong>
+            <small>Crit: {activeThresholds.anomalyScore.critical}</small>
           </div>
         </div>
       </section>

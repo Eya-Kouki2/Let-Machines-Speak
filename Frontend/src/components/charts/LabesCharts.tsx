@@ -1,34 +1,6 @@
 import { useEffect, useRef } from 'react'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  type ChartData,
-  type ChartOptions,
-  type Plugin,
-} from 'chart.js'
-
-// Register Chart.js components once
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-)
+import Chart from 'chart.js/auto'
+import type { ChartData, ChartOptions, Plugin } from 'chart.js'
 
 // Brand Color Palette
 export const LABES_COLORS = {
@@ -65,7 +37,7 @@ export function LabesDoughnutChart({
   size = 130,
 }: DoughnutChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const chartInstance = useRef<ChartJS | null>(null)
+  const chartInstance = useRef<Chart | null>(null)
   const total = healthy + warning + critical + offline
 
   useEffect(() => {
@@ -118,7 +90,7 @@ export function LabesDoughnutChart({
       },
     }
 
-    chartInstance.current = new ChartJS(ctx, {
+    chartInstance.current = new Chart(ctx, {
       type: 'doughnut',
       data,
       options,
@@ -215,7 +187,7 @@ export function LabesLineChart({
   yTitle,
 }: LineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const chartInstance = useRef<ChartJS | null>(null)
+  const chartInstance = useRef<Chart | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -356,7 +328,7 @@ export function LabesLineChart({
       },
     }
 
-    chartInstance.current = new ChartJS(ctx, {
+    chartInstance.current = new Chart(ctx, {
       type: 'line',
       data: chartData,
       options,
@@ -394,7 +366,7 @@ export function LabesBarChart({
   yUnit = '',
 }: BarChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const chartInstance = useRef<ChartJS | null>(null)
+  const chartInstance = useRef<Chart | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -463,7 +435,7 @@ export function LabesBarChart({
       },
     }
 
-    chartInstance.current = new ChartJS(ctx, {
+    chartInstance.current = new Chart(ctx, {
       type: 'bar',
       data: chartData,
       options,

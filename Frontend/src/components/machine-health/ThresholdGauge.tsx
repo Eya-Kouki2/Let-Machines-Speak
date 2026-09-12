@@ -18,29 +18,33 @@ export function ThresholdGauge({
   maxScale,
   precision = 2,
 }: ThresholdGaugeProps) {
+  const safeVal = typeof value === 'number' && !isNaN(value) ? value : 0
+  const safeWarn = typeof warningThreshold === 'number' && !isNaN(warningThreshold) ? warningThreshold : 10
+  const safeCrit = typeof criticalThreshold === 'number' && !isNaN(criticalThreshold) && criticalThreshold > safeWarn ? criticalThreshold : Math.max(safeWarn * 1.5, safeWarn + 1)
+
   // Determine metric status based on the machine's thresholds
   let status: 'NORMAL' | 'WARNING' | 'CRITICAL' = 'NORMAL'
   let statusColor = '#10b981' // emerald
 
-  if (value >= criticalThreshold) {
+  if (safeVal >= safeCrit) {
     status = 'CRITICAL'
     statusColor = '#ef4444' // red
-  } else if (value >= warningThreshold) {
+  } else if (safeVal >= safeWarn) {
     status = 'WARNING'
     statusColor = '#f97316' // orange
   }
 
-  // Calculate full scale: at least 1.3x critical or maxScale or 1.2x value
-  const totalMax = maxScale ?? Math.max(criticalThreshold * 1.35, value * 1.15, 1)
-  const clampedValue = Math.min(Math.max(value, 0), totalMax)
+  // Calculate full scale: at least 1.35x critical or maxScale or 1.15x value
+  const totalMax = maxScale ?? Math.max(safeCrit * 1.35, safeVal * 1.15, 1)
+  const clampedValue = Math.min(Math.max(safeVal, 0), totalMax)
   const markerPercent = Math.min(Math.max((clampedValue / totalMax) * 100, 0), 100)
 
   // Segment widths in %
-  const normalWidth = (warningThreshold / totalMax) * 100
-  const warningWidth = ((criticalThreshold - warningThreshold) / totalMax) * 100
+  const normalWidth = (safeWarn / totalMax) * 100
+  const warningWidth = ((safeCrit - safeWarn) / totalMax) * 100
   const criticalWidth = Math.max(0, 100 - normalWidth - warningWidth)
 
-  const formattedValue = value.toFixed(precision)
+  const formattedValue = safeVal.toFixed(precision)
 
   return (
     <div className="mh-threshold-card">
