@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 
 const { initSocketServer } = require('./services/socketService');
+const { connectMqtt, getConnectionState } = require('./services/mqttService');
 const machineHealthRoutes = require('./routes/machineHealthRoutes');
 const machineManagementRoutes = require('./routes/machines');
 const usersRoutes = require('./routes/users');
@@ -20,12 +21,23 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const httpServer = http.createServer(app);
+const PORT = Number(process.env.PORT) || 5000;
+
+console.log('LABES Backend');
+console.log(`HTTP: http://127.0.0.1:${PORT}`);
+console.log(`MongoDB: connecting...`);
+console.log('Socket.IO: initializing...');
+console.log('MQTT: connecting...');
 
 // Attach Socket.IO to the http server BEFORE routes so every controller
 // can call getIo() / emit() to push real-time events.
-initSocketServer(httpServer);
-
-const PORT = process.env.PORT || 5000;
+initSocketServer(httpServer, {
+  cors: {
+    origin: ['http://127.0.0.1:5173', 'http://localhost:5173'],
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
 
 const databaseStates = {
   0: 'disconnected',
@@ -35,7 +47,10 @@ const databaseStates = {
 };
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: ['http://127.0.0.1:5173', 'http://localhost:5173'],
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -55,6 +70,18 @@ app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     database: databaseStates[mongoose.connection.readyState] || 'unknown',
+    mqtt: getConnectionState(),
+  });
+});
+
+app.get('/api/system/mqtt-status', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      state: getConnectionState(),
+      broker: process.env.MQTT_BROKER_URL || 'mqtt://test.mosquitto.org:1883',
+      topic: process.env.MQTT_TELEMETRY_TOPIC || 'devices/node01/telemetry',
+    },
   });
 });
 
@@ -93,9 +120,15 @@ app.use((err, _req, res, _next) => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 async function startServer() {
   await connectDatabase();
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log('MongoDB: connected');
+  console.log('Socket.IO: ready');
+
+  httpServer.listen(PORT, '127.0.0.1', () => {
+    console.log(`LABES backend listening on http://127.0.0.1:${PORT}`);
+    console.log(`[mqtt] configured broker=${process.env.MQTT_BROKER_URL || 'mqtt://test.mosquitto.org:1883'}`);
   });
+
+  connectMqtt();
 }
 
 if (require.main === module) {

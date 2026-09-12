@@ -11,6 +11,14 @@ const machineSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    deviceId: {
+      type: String,
+      default: '',
+      trim: true,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -40,6 +48,18 @@ const machineSchema = new mongoose.Schema(
       type: String,
       enum: MACHINE_STATUSES,
       default: 'OFFLINE',
+      index: true,
+    },
+    connectionStatus: {
+      type: String,
+      enum: MACHINE_STATUSES,
+      default: 'OFFLINE',
+      index: true,
+    },
+    source: {
+      type: String,
+      default: 'MANUAL',
+      trim: true,
       index: true,
     },
     thresholds: {

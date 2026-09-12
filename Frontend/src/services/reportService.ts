@@ -9,7 +9,10 @@ const addSectionDivider = (doc: jsPDF, y: number) => {
   return y + 8
 }
 
-const formatValue = (value: number | string) => (typeof value === 'number' ? Number(value).toFixed(2) : value)
+const formatValue = (value: number | string | null | undefined, decimals = 2) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return value ?? 'N/A'
+  return Number(value).toFixed(decimals)
+}
 
 export function downloadMachineHealthReport(
   machine: Machine,
@@ -191,9 +194,9 @@ export function downloadFleetReport(machines: FleetMachineReportItem[]) {
 
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    const scoreStr = machine.healthScore !== null ? `${machine.healthScore}%` : 'N/A'
-    const tempStr = machine.temperature !== null ? `${machine.temperature.toFixed(1)}°C` : 'N/A'
-    const rmsStr = machine.rms !== null ? `${machine.rms.toFixed(2)} mm/s` : 'N/A'
+    const scoreStr = machine.healthScore !== null && machine.healthScore !== undefined ? `${formatValue(machine.healthScore, 0)}%` : 'N/A'
+    const tempStr = machine.temperature !== null && machine.temperature !== undefined ? `${formatValue(machine.temperature, 1)}°C` : 'N/A'
+    const rmsStr = machine.rms !== null && machine.rms !== undefined ? `${formatValue(machine.rms, 2)} mm/s` : 'N/A'
     const connStr = machine.connected ? 'CONNECTED' : 'OFFLINE'
 
     doc.text(

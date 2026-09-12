@@ -2,12 +2,10 @@ import { apiRequest } from './apiClient'
 import type { User } from '../types/admin'
 
 function getBackendBaseUrl(): string {
-  const configuredBase = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:5000'
-  const apiRoot = import.meta.env.VITE_API_URL ?? ''
-
-  if (apiRoot && apiRoot.includes('/api')) {
-    return apiRoot.replace(/\/api\/?$/, '').replace(/\/$/, '') || configuredBase.replace(/\/$/, '')
-  }
+  const configuredBase =
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+    (import.meta.env.VITE_BACKEND_URL as string | undefined) ??
+    'http://127.0.0.1:5000'
 
   return configuredBase.replace(/\/$/, '')
 }

@@ -1,13 +1,17 @@
-const API_ROOT = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000'
+const API_ROOT =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  'http://127.0.0.1:5000'
 
 function buildApiUrl(path: string): string {
-  const normalizedRoot = API_ROOT.replace(/\/$/, '')
+  const normalizedRoot = API_ROOT.replace(/\/$/, '').replace(/\/api$/, '')
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
 
-  if (normalizedRoot.endsWith('/api') && path.startsWith('/api/')) {
-    return `${normalizedRoot}${path.slice(4)}`
+  if (normalizedPath.startsWith('/api/')) {
+    return `${normalizedRoot}${normalizedPath}`
   }
 
-  return `${normalizedRoot}${path}`
+  return `${normalizedRoot}/api${normalizedPath}`
 }
 
 export function getToken(): string | null {

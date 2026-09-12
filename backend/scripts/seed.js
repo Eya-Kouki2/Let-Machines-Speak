@@ -21,6 +21,7 @@ const defaultThresholds = {
 const machines = [
   {
     machineId: 'MCH-001',
+    deviceId: 'node01',
     name: 'Industrial Motor 01',
     type: 'Electric Motor',
     zone: 'Zone 1',

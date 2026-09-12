@@ -9,7 +9,9 @@ router.get('/', machineHealthController.listMachines);
 router.post('/simulate', machineHealthController.simulateMachineData);
 router.get('/:id', machineHealthController.getMachine);
 router.get('/:id/health', machineHealthController.getCurrentHealth);
+router.get('/:id/telemetry', machineHealthController.getTelemetry);
 router.get('/:id/history', machineHealthController.getHealthHistory);
+router.get('/:id/health-history', machineHealthController.getHealthHistory);
 router.get('/:id/metrics', machineHealthController.getMetrics);
 
 module.exports = router;

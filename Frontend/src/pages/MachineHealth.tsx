@@ -23,7 +23,10 @@ import {
 // ---------------------------------------------------------------------------
 function formatRelativeTime(iso?: string | null): string {
   if (!iso) return 'Never'
-  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'N/A'
+
+  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000))
   if (seconds < 5) return 'just now'
   if (seconds < 60) return `${seconds} sec ago`
   const minutes = Math.round(seconds / 60)
@@ -32,6 +35,11 @@ function formatRelativeTime(iso?: string | null): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
   return `${days}d ago`
+}
+
+function formatNumber(value: number | null | undefined, decimals = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A'
+  return Number(value).toFixed(decimals)
 }
 
 function getConnectionStatus(lastSeen?: string | null, status?: string): {
@@ -659,7 +667,7 @@ export function MachineHealth() {
                     <div className="mh-fleet-metric">
                       <span className="mh-fleet-metric-lbl">Temperature</span>
                       <strong className="mh-fleet-metric-val">
-                        {temp !== undefined ? `${temp.toFixed(1)}` : '—'}
+                        {temp !== undefined && typeof temp === 'number' && Number.isFinite(temp) ? formatNumber(temp, 1) : 'N/A'}
                         <small>°C</small>
                       </strong>
                       <span className="mh-fleet-metric-hint">
@@ -670,7 +678,7 @@ export function MachineHealth() {
                     <div className="mh-fleet-metric">
                       <span className="mh-fleet-metric-lbl">Vibration RMS</span>
                       <strong className="mh-fleet-metric-val">
-                        {rms !== undefined ? `${rms.toFixed(2)}` : '—'}
+                        {rms !== undefined && typeof rms === 'number' && Number.isFinite(rms) ? formatNumber(rms, 2) : 'N/A'}
                         <small>mm/s</small>
                       </strong>
                       <span className="mh-fleet-metric-hint">
@@ -734,12 +742,20 @@ export function MachineHealth() {
 
   const machineStatus = getMachineStatus(selectedMachine, latestHealth)
   const connState = getConnectionStatus(selectedMachine.lastSeen, selectedMachine.status)
-  const currentHealthScore = latestHealth?.healthScore ?? 85
-  const rmsVal = latestHealth?.rms ?? 2.8
-  const peakVal = latestHealth?.peak ?? 1.4
-  const tempVal = latestHealth?.temperature ?? 48
-  const curVal = latestHealth?.current ?? 4.2
-  const anomalyScore = latestHealth ? Number((1 - currentHealthScore / 100).toFixed(2)) : 0.15
+  const currentHealthScore =
+    typeof latestHealth?.healthScore === 'number' && !Number.isNaN(latestHealth.healthScore)
+      ? latestHealth.healthScore
+      : 85
+  const rmsVal = typeof latestHealth?.rms === 'number' && !Number.isNaN(latestHealth.rms) ? latestHealth.rms : 2.8
+  const peakVal = typeof latestHealth?.peak === 'number' && !Number.isNaN(latestHealth.peak) ? latestHealth.peak : 1.4
+  const tempVal =
+    typeof latestHealth?.temperature === 'number' && !Number.isNaN(latestHealth.temperature)
+      ? latestHealth.temperature
+      : 48
+  const curVal = typeof latestHealth?.current === 'number' && !Number.isNaN(latestHealth.current) ? latestHealth.current : 4.2
+  const anomalyScore = Number.isFinite(currentHealthScore)
+    ? Number((1 - currentHealthScore / 100).toFixed(2))
+    : 0.15
 
   // Prepare Health History Points for Chart.js
   const historyLabels = history.map((h) => {
@@ -837,7 +853,7 @@ export function MachineHealth() {
           <div className="mh-ai-stats-row">
             <div className="mh-ai-stat">
               <span>Anomaly Score</span>
-              <strong>{anomalyScore.toFixed(2)}</strong>
+              <strong>{Number.isFinite(anomalyScore) ? anomalyScore.toFixed(2) : '0.15'}</strong>
               <small>Tolerance: {activeThresholds.anomalyScore.warning}</small>
             </div>
             <div className="mh-ai-stat">
@@ -1018,16 +1034,17 @@ export function MachineHealth() {
             {fftBands.map((band, idx) => {
               const freq = (idx + 1) * 60
               const isDominant = idx === 2
+              const safeBand = typeof band === 'number' && !Number.isNaN(band) ? band : 0
               return (
                 <div key={idx} className="mh-fft-col">
                   <div className="mh-fft-track">
                     <div
                       className={`mh-fft-fill ${isDominant ? 'dominant' : ''}`}
                       style={{
-                        height: `${Math.min(band * 240, 100)}%`,
+                        height: `${Math.min(safeBand * 240, 100)}%`,
                         backgroundColor: isDominant ? LABES_COLORS.orange : LABES_COLORS.green,
                       }}
-                      title={`${freq} Hz: ${band.toFixed(3)} g`}
+                      title={`${freq} Hz: ${safeBand.toFixed(3)} g`}
                     />
                   </div>
                   <span className="mh-fft-freq">{freq}Hz</span>

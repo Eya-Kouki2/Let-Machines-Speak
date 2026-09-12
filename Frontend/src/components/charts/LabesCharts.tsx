@@ -279,11 +279,11 @@ export function LabesLineChart({
           callbacks: {
             label(item) {
               const val = item.raw
-              if (typeof val === 'number') {
+              if (typeof val === 'number' && Number.isFinite(val)) {
                 const formatted = Number.isInteger(val) ? val.toString() : val.toFixed(2)
                 return ` ${item.dataset.label}: ${formatted}${yUnit ? ` ${yUnit}` : ''}`
               }
-              return ` ${item.dataset.label}: ${val ?? '—'}`
+              return ` ${item.dataset.label}: N/A`
             },
           },
         },

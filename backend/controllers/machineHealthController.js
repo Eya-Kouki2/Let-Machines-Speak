@@ -1,4 +1,5 @@
 const machineHealthService = require('../services/machineHealthService');
+const TelemetryRecord = require('../models/TelemetryRecord');
 const { buildSimulatedPayload } = require('../services/simulationService');
 const { emit } = require('../services/socketService');
 
@@ -58,6 +59,50 @@ async function getMetrics(req, res, next) {
   }
 }
 
+async function getTelemetry(req, res, next) {
+  try {
+    const machineId = req.params.id;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(Math.max(1, Number(req.query.limit) || 25), 200);
+    const range = String(req.query.range || '24h').toLowerCase();
+    const now = Date.now();
+    const windows = {
+      '1h': 60 * 60 * 1000,
+      '24h': 24 * 60 * 60 * 1000,
+      '7d': 7 * 24 * 60 * 60 * 1000,
+      '30d': 30 * 24 * 60 * 60 * 1000,
+    };
+
+    const filter = { machineId };
+    const span = windows[range] || windows['24h'];
+    filter.timestamp = { $gte: new Date(now - span) };
+
+    const [items, total] = await Promise.all([
+      TelemetryRecord.find(filter).sort({ timestamp: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      TelemetryRecord.countDocuments(filter),
+    ]);
+
+    return success(res, {
+      items: items.reverse(),
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getHealthHistoryCompat(req, res, next) {
+  try {
+    const history = await machineHealthService.getHistory(req.params.id, req.query);
+    return success(res, history);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function simulateMachineData(req, res, next) {
   try {
     const payload = buildSimulatedPayload(req.body.scenario, req.body.machineId);
@@ -79,9 +124,10 @@ async function simulateMachineData(req, res, next) {
 
 module.exports = {
   getCurrentHealth,
-  getHealthHistory,
+  getHealthHistory: getHealthHistoryCompat,
   getMachine,
   getMetrics,
+  getTelemetry,
   listMachines,
   simulateMachineData,
 };

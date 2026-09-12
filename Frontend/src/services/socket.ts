@@ -19,12 +19,12 @@
 import { io, type Socket } from 'socket.io-client'
 
 const API_ROOT =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (import.meta.env.VITE_SOCKET_URL as string | undefined) ??
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
-  'http://localhost:5000'
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  'http://127.0.0.1:5000'
 
-// Normalise so we always connect to the server root (no /api suffix)
-const SOCKET_URL = API_ROOT.replace(/\/api\/?$/, '')
+const SOCKET_URL = API_ROOT.replace(/\/api\/?$/, '').replace(/\/$/, '')
 
 let socket: Socket | null = null
 

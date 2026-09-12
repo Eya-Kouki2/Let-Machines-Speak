@@ -10,30 +10,58 @@ const healthRecordSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    deviceId: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
     timestamp: {
       type: Date,
       required: true,
       index: true,
     },
+    sampleRateHz: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     temperature: {
       type: Number,
-      required: true,
+      default: null,
     },
     current: {
       type: Number,
-      required: true,
+      default: null,
+    },
+    vibrationRms: {
+      type: Number,
+      default: 0,
+    },
+    peakAcceleration: {
+      type: Number,
+      default: 0,
     },
     rms: {
       type: Number,
-      required: true,
+      default: 0,
     },
     peak: {
       type: Number,
-      required: true,
+      default: 0,
     },
     fftBands: {
       type: [Number],
       default: [],
+    },
+    fftSpectrum: {
+      type: [{ frequency: Number, amplitude: Number }],
+      default: [],
+    },
+    accel: {
+      x: { type: [Number], default: [] },
+      y: { type: [Number], default: [] },
+      z: { type: [Number], default: [] },
     },
     vibrationPreview: {
       type: [Number],
@@ -44,6 +72,12 @@ const healthRecordSchema = new mongoose.Schema(
       required: true,
       min: 0,
       max: 100,
+    },
+    anomalyScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 1,
     },
     status: {
       type: String,
