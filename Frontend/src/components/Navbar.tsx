@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { User } from '../types/admin'
+import { LabesLogo } from './LabesLogo'
+import { getMediaUrl } from '../services/profileApi'
 
 export type NavMode = 'top' | 'side'
 
@@ -9,12 +11,13 @@ interface NavbarProps {
   activeTab?: string
   onTabChange?: (tabName: string) => void
   onLoginClick?: () => void
+  onSignUpClick?: () => void
   onLogout?: () => void
   isLoggedIn?: boolean
   currentUser?: User | null
 }
 
-export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: externalActiveTab, onTabChange, onLoginClick, onLogout, isLoggedIn = false, currentUser = null }: NavbarProps) {
+export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: externalActiveTab, onTabChange, onLoginClick, onSignUpClick, onLogout, isLoggedIn = false, currentUser = null }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [internalActiveTab, setInternalActiveTab] = useState('Home')
@@ -117,7 +120,10 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
     }
   ]
 
-  const navItems = currentUser?.role === 'ADMIN'
+  const isApprovedAdmin = currentUser?.role === 'ADMIN' && currentUser?.isApproved && currentUser?.approvalStatus === 'APPROVED'
+  const navItems = !isLoggedIn
+    ? [baseNavItems[0]]
+    : isApprovedAdmin
     ? [
         ...baseNavItems,
         { name: 'Users', href: '#users', icon: baseNavItems[2].icon },
@@ -130,24 +136,15 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
     ? `${savedUser.firstName} ${savedUser.lastName}`
     : savedUser.firstName) || 'User Name'
   const displayRole = savedUser.role || 'Role'
+  const profileImageUrl = savedUser.profileImage ? getMediaUrl(savedUser.profileImage) : ''
 
   return (
     <header className={`navbar-fixed-wrapper mode-${mode}`}>
       <div className={`navbar-pill electric-theme ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         {/* Top Header Section */}
         <div className="navbar-top-section">
-          <a href="/" className="navbar-brand">
-            <div className="brand-logo-icon energy-badge">
-              <svg viewBox="0 0 32 32" width="24" height="24" fill="none">
-                <path d="M4 16h4l3-9 5 18 4-12 3 3h5" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M4 16h4l3-9 5 18 4-12 3 3h5" stroke="#f97316" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="16" cy="7" r="2" fill="#34d399" className="energy-dot" />
-              </svg>
-            </div>
-            <div className="brand-title">
-              <span className="text-white">LAB</span>
-              <span className="text-orange energy-text">ES</span>
-            </div>
+          <a href="/" className="navbar-brand" aria-label="LABES home">
+            <LabesLogo className="navbar-logo" />
           </a>
 
           <div className="navbar-header-actions">
@@ -161,9 +158,13 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
                 >
                   <div className="user-avatar-group">
                     <div className="user-avatar energy-avatar">
-                      <svg viewBox="0 0 24 24" fill="#052e1f" width="18" height="18">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                      </svg>
+                      {profileImageUrl ? (
+                        <img src={profileImageUrl} alt={displayName} className="user-avatar-image" />
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="#052e1f" width="18" height="18">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                      )}
                     </div>
                     <div className="user-info">
                       <span className="user-name">{displayName}</span>
@@ -278,6 +279,7 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
           ))}
 
           {!isLoggedIn && (
+            <>
             <button
               type="button"
               onClick={onLoginClick}
@@ -295,8 +297,26 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
                 marginLeft: '4px',
               }}
             >
-              Login
+              Sign In
             </button>
+            <button
+              type="button"
+              onClick={onSignUpClick}
+              style={{
+                background: 'transparent',
+                color: '#34d399',
+                border: '1px solid rgba(52, 211, 153, 0.45)',
+                borderRadius: '10px',
+                padding: '8px 14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                marginLeft: '4px',
+              }}
+            >
+              Sign Up
+            </button>
+            </>
           )}
         </nav>
       </div>

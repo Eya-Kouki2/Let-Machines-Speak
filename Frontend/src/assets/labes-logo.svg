@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-labelledby="title">
+  <title id="title">LABES</title>
+  <defs>
+    <linearGradient id="green" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#10b981"/>
+      <stop offset="1" stop-color="#012d1f"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" x2="1">
+      <stop stop-color="#fff7ad"/>
+      <stop offset=".5" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#ef4444"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="640" height="180" fill="none"/>
+  <g fill="url(#green)" stroke="#064e3b" stroke-width="3">
+    <path d="M25 28h34v103h78v30H25z"/>
+    <path d="M183 160h-41L224 26h42l82 134h-42l-15-28h-93zm28-58h67l-34-61z"/>
+    <path d="M365 28h116c34 0 55 17 55 43 0 17-10 30-27 36 22 6 36 22 36 45 0 29-23 48-60 48H365zm37 30v36h72c15 0 24-7 24-18s-9-18-24-18zm0 63v39h78c17 0 27-7 27-19s-10-20-27-20z"/>
+    <path d="M562 28h150v30H599v35h101v29H599v38h116v30H562z" transform="translate(-5 -15) scale(.86 1)"/>
+    <path d="M555 118c18 12 43 18 70 18 24 0 38-6 38-17 0-12-13-16-45-20-47-6-70-21-70-50 0-33 30-53 78-53 29 0 56 7 78 21l-17 28c-18-11-39-16-62-16-23 0-36 6-36 17 0 10 12 14 43 18 49 6 73 23 73 53 0 34-31 53-82 53-35 0-67-9-89-26z" transform="translate(-5 0)"/>
+  </g>
+  <path d="M155 129h48l30-82 27 120 28-66 15 28h40" fill="none" stroke="url(#orange)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M155 129h48l30-82 27 120 28-66 15 28h40" fill="none" stroke="#fff7ed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(526 2) rotate(12)">
+    <path d="M0 38c29-31 87-31 116 0 9 10 15 22 18 36H-18c3-14 9-26 18-36z" fill="url(#orange)" stroke="#c2410c" stroke-width="3"/>
+    <path d="M15 43c19-24 66-26 89-1" fill="none" stroke="#fffbeb" stroke-width="5" stroke-linecap="round" opacity=".75"/>
+    <path d="M-28 72h173c8 0 12 10 6 16-45 18-107 19-185 0-6-6-2-16 6-16z" fill="#f59e0b" stroke="#c2410c" stroke-width="3"/>
+  </g>
+</svg>

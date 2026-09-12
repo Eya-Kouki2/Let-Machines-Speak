@@ -2,7 +2,14 @@ import machineHealthImg from '../assets/machine_health.jpg'
 import workerSafetyImg from '../assets/worker_safety.jpg'
 import whyChooseUsImg from '../assets/why_choose_us.jpg'
 
-export function Home() {
+interface HomeProps {
+    isLoggedIn?: boolean
+    isAdmin?: boolean
+    onSignIn?: () => void
+    onSignUp?: () => void
+}
+
+export function Home({ isLoggedIn = false, isAdmin = false, onSignIn, onSignUp }: HomeProps) {
     return (
         <div className="home-page-wrapper">
             <div className="home-content-container">
@@ -28,25 +35,37 @@ export function Home() {
                         </div>
 
                         <p className="hero-description">
-                            LABES combines machine health monitoring and worker safety intelligence in one unified system.
+                            LABES is an AI-powered industrial monitoring platform that combines machine health monitoring and worker safety intelligence in one unified system.
                         </p>
 
                         <div className="hero-buttons">
-                            <a href="#dashboard" className="btn-go-dashboard">
+                            {isLoggedIn ? (
+                            <a href={isAdmin ? '#users' : '#dashboard'} className="btn-go-dashboard">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="17" height="17">
                                     <line x1="18" y1="20" x2="18" y2="10" />
                                     <line x1="12" y1="20" x2="12" y2="4" />
                                     <line x1="6" y1="20" x2="6" y2="14" />
                                 </svg>
-                                Go to Dashboard
+                                {isAdmin ? 'Manage Platform' : 'Open Dashboard'}
                             </a>
+                            ) : (
+                            <button type="button" className="btn-go-dashboard" onClick={onSignIn}>
+                                Sign In
+                            </button>
+                            )}
 
+                            {isLoggedIn ? (
                             <a href="#safety" className="btn-safety-overview">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="17" height="17">
                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                                 </svg>
                                 Safety Overview
                             </a>
+                            ) : (
+                            <button type="button" className="btn-safety-overview" onClick={onSignUp}>
+                                Create Account
+                            </button>
+                            )}
                         </div>
                     </div>
 

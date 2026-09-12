@@ -8,17 +8,18 @@ interface LayoutProps {
   activeTab?: string
   onTabChange?: (tabName: string) => void
   onLoginClick?: () => void
+  onSignUpClick?: () => void
   onLogout?: () => void
   isLoggedIn?: boolean
   currentUser?: User | null
 }
 
-export function Layout({ children, defaultNavMode = 'top', activeTab, onTabChange, onLoginClick, onLogout, isLoggedIn = false, currentUser = null }: LayoutProps) {
+export function Layout({ children, defaultNavMode = 'top', activeTab, onTabChange, onLoginClick, onSignUpClick, onLogout, isLoggedIn = false, currentUser = null }: LayoutProps) {
   const [navMode, setNavMode] = useState<NavMode>(defaultNavMode)
 
   return (
     <div className={`app-layout layout-${navMode}`}>
-      <Navbar mode={navMode} onModeChange={setNavMode} activeTab={activeTab} onTabChange={onTabChange} onLoginClick={onLoginClick} onLogout={onLogout} isLoggedIn={isLoggedIn} currentUser={currentUser} />
+      <Navbar mode={navMode} onModeChange={setNavMode} activeTab={activeTab} onTabChange={onTabChange} onLoginClick={onLoginClick} onSignUpClick={onSignUpClick} onLogout={onLogout} isLoggedIn={isLoggedIn} currentUser={currentUser} />
       <main className={`main-container main-${navMode}`}>
         {children}
       </main>

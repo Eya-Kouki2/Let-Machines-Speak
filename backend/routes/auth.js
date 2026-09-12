@@ -8,6 +8,7 @@ router.post('/signup', authController.signUp);
 
 // Route pour la connexion
 router.post('/login', authController.login);
+router.post('/forgot-password', authController.forgotPassword);
 router.get('/me', requireAuth, authController.me);
 
 module.exports = router;

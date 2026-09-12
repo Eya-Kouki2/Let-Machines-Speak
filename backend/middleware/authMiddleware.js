@@ -17,6 +17,14 @@ async function requireAuth(req, res, next) {
     if (!user || !user.active) {
       return res.status(401).json({ success: false, message: 'User is not active or no longer exists' });
     }
+    if (user.approvalStatus === undefined || user.isApproved === undefined) {
+      const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@labes.local';
+      const shouldApprove = user.role !== 'ADMIN' || user.email === seedAdminEmail;
+      user.approvalStatus = shouldApprove ? 'APPROVED' : 'PENDING';
+      user.isApproved = shouldApprove;
+      user.approvedAt = shouldApprove ? (user.approvedAt || new Date()) : null;
+      await user.save();
+    }
     req.user = user;
     return next();
   } catch (error) {
@@ -24,11 +32,22 @@ async function requireAuth(req, res, next) {
   }
 }
 
+function isApprovedUser(user) {
+  return user?.active && user?.isApproved === true && user?.approvalStatus === 'APPROVED';
+}
+
+function requireApproved(req, res, next) {
+  if (!isApprovedUser(req.user)) {
+    return res.status(403).json({ success: false, message: 'Account approval is required' });
+  }
+  return next();
+}
+
 function requireAdmin(req, res, next) {
-  if (req.user?.role !== 'ADMIN') {
+  if (req.user?.role !== 'ADMIN' || !isApprovedUser(req.user)) {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   return next();
 }
 
-module.exports = { getJwtSecret, requireAdmin, requireAuth };
+module.exports = { getJwtSecret, isApprovedUser, requireAdmin, requireApproved, requireAuth };

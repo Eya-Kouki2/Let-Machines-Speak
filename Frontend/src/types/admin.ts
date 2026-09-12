@@ -1,11 +1,26 @@
-export type UserRole = 'ADMIN' | 'OPERATOR' | 'VIEWER'
+export type UserRole = 'ADMIN' | 'USER' | 'OPERATOR' | 'VIEWER'
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface User {
   id: string
   name: string
+  firstName?: string | null
+  lastName?: string | null
   email: string
   role: UserRole
   active: boolean
+  isApproved: boolean
+  approvalStatus: ApprovalStatus
+  age?: number | null
+  workZone?: string | null
+  profileImage?: string | null
+  mustChangePassword?: boolean
+  temporaryPasswordIssuedAt?: string | null
+  passwordChangedAt?: string | null
+  approvedAt?: string | null
+  approvedBy?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface MachineThresholdPair {
