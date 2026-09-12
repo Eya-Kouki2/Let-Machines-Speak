@@ -180,7 +180,19 @@ function createMachineHealthService(dependencies = {}) {
 
     const filters = { machineId };
 
-    if (query.from || query.to) {
+    if (query.range) {
+      const now = Date.now();
+      const ranges = {
+        '1h': 1 * 60 * 60 * 1000,
+        '24h': 24 * 60 * 60 * 1000,
+        '7d': 7 * 24 * 60 * 60 * 1000,
+        '30d': 30 * 24 * 60 * 60 * 1000,
+      };
+      const ms = ranges[String(query.range).toLowerCase()];
+      if (ms) {
+        filters.timestamp = { $gte: new Date(now - ms) };
+      }
+    } else if (query.from || query.to) {
       filters.timestamp = {};
       if (query.from) {
         filters.timestamp.$gte = new Date(query.from);
@@ -190,7 +202,7 @@ function createMachineHealthService(dependencies = {}) {
       }
     }
 
-    const limit = Math.min(Number(query.limit) || 50, 200);
+    const limit = Math.min(Number(query.limit) || 100, 500);
     return HealthRecordModel.find(filters).sort({ timestamp: -1 }).limit(limit);
   }
 

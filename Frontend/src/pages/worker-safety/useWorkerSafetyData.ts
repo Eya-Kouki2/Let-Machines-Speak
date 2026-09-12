@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { SafetyEventRow } from "./types";
+import { apiRequest } from "../../services/apiClient";
+import { useSocket } from "../../hooks/useSocket";
 
-// Données de démo, au même format que ce qu'enverra le vrai backend
-// (voir GET /api/safety/history et le flux WebSocket).
+// Fallback demo data
 const MOCK_EVENTS: SafetyEventRow[] = [
   {
     event_id: "zone1-20260829-00028",
@@ -31,25 +32,16 @@ const MOCK_EVENTS: SafetyEventRow[] = [
     person_track_id: 5,
     status: "resolved",
   },
-  {
-    event_id: "zone3-20260829-00025",
-    timestamp: "2026-08-29T12:20:05.000Z",
-    node_id: "safety-node-03",
-    zone: "Zone3",
-    event: "restricted_zone_entry",
-    person_track_id: 2,
-    status: "open",
-  },
-  {
-    event_id: "zone2-20260829-00024",
-    timestamp: "2026-08-29T12:15:32.000Z",
-    node_id: "safety-node-02",
-    zone: "Zone2",
-    event: "helmet_ok",
-    person_track_id: 8,
-    status: "resolved",
-  },
 ];
+
+interface BackendSafetyEvent {
+  _id: string;
+  timestamp: string;
+  zone: string;
+  event: string;
+  confidence: number;
+  status: "open" | "acknowledged" | "resolved";
+}
 
 interface UseWorkerSafetyDataResult {
   events: SafetyEventRow[];
@@ -57,22 +49,56 @@ interface UseWorkerSafetyDataResult {
   isLoading: boolean;
 }
 
-/**
- * TODO: remplacer ce hook par un vrai appel à votre API + un abonnement
- * WebSocket quand le backend sera prêt. La forme des données (SafetyEventRow[])
- * ne devrait pas changer, donc les composants n'auront rien à modifier.
- */
+function mapBackendEvent(ev: BackendSafetyEvent): SafetyEventRow {
+  return {
+    event_id: ev._id,
+    timestamp: ev.timestamp,
+    node_id: `safety-${ev.zone.toLowerCase().replace(/\s+/g, '-')}`,
+    zone: ev.zone,
+    event: ev.event,
+    person_track_id: 1,
+    status: ev.status === "open" ? "open" : "resolved",
+  };
+}
+
 export function useWorkerSafetyData(): UseWorkerSafetyDataResult {
   const [events, setEvents] = useState<SafetyEventRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const socket = useSocket();
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const data = await apiRequest<BackendSafetyEvent[]>("/api/safety/events?limit=50");
+      if (Array.isArray(data) && data.length > 0) {
+        setEvents(data.map(mapBackendEvent));
+      } else {
+        setEvents(MOCK_EVENTS);
+      }
+    } catch {
+      setEvents(MOCK_EVENTS);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setEvents(MOCK_EVENTS);
-      setIsLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    void fetchEvents();
+  }, [fetchEvents]);
+
+  // Real-time socket sync
+  useEffect(() => {
+    const handleSafetyEvent = () => {
+      void fetchEvents();
+    };
+
+    socket.on("safety:event", handleSafetyEvent);
+    socket.on("safety:updated", handleSafetyEvent);
+
+    return () => {
+      socket.off("safety:event", handleSafetyEvent);
+      socket.off("safety:updated", handleSafetyEvent);
+    };
+  }, [socket, fetchEvents]);
 
   const latestAlert = events.find((e) => e.status === "open") ?? null;
 

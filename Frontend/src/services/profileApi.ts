@@ -1,12 +1,25 @@
 import { apiRequest } from './apiClient'
 import type { User } from '../types/admin'
 
+function getBackendBaseUrl(): string {
+  const configuredBase = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:5000'
+  const apiRoot = import.meta.env.VITE_API_URL ?? ''
+
+  if (apiRoot && apiRoot.includes('/api')) {
+    return apiRoot.replace(/\/api\/?$/, '').replace(/\/$/, '') || configuredBase.replace(/\/$/, '')
+  }
+
+  return configuredBase.replace(/\/$/, '')
+}
+
 export function getMediaUrl(path?: string | null): string {
   if (!path) return ''
-  const base = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:5000'
-  const normalizedBase = base.replace(/\/$/, '')
-  const normalizedPath = path.startsWith('http') ? path : `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
-  return normalizedPath
+  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+
+  const base = getBackendBaseUrl()
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 
 export function getProfile(): Promise<User> {
@@ -32,8 +45,9 @@ export function uploadAvatar(file: File): Promise<{ profileImage: string; user: 
   formData.append('avatar', file)
 
   const token = localStorage.getItem('token')
+  const backendBase = getBackendBaseUrl()
 
-  return fetch(`${(import.meta.env.VITE_API_URL ?? import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:5000').replace(/\/$/, '')}/api/users/me/avatar`, {
+  return fetch(`${backendBase}/api/users/me/avatar`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
+import { Dashboard } from './pages/Dashboard'
 import { Profile } from './pages/Profile'
 import { Login } from './pages/auth/login'
 import { SignUp } from './pages/auth/signup'
@@ -13,6 +14,7 @@ import { PendingApproval } from './pages/auth/PendingApproval'
 import { ForgotPassword } from './pages/auth/ForgotPassword'
 import { ChangePassword } from './pages/auth/ChangePassword'
 import { getCurrentUser } from './services/authApi'
+import { connectSocket, disconnectSocket } from './services/socket'
 import type { User } from './types/admin'
 
 const HASH_TO_TAB: Record<string, string> = {
@@ -22,14 +24,13 @@ const HASH_TO_TAB: Record<string, string> = {
   'machine-health': 'Machine Health',
   safety:    'Safety',
   alerts:    'Alerts',
-  reports:   'Reports',
   profile:   'Profile',
   users: 'Users',
   'machine-management': 'Machine Management',
   'pending-approval': 'Pending Approval',
 }
 
-const protectedTabs = new Set(['Dashboard', 'Machine Health', 'Safety', 'Alerts', 'Reports', 'Profile'])
+const protectedTabs = new Set(['Dashboard', 'Machine Health', 'Safety', 'Alerts', 'Profile'])
 const adminTabs = new Set(['Users', 'Machine Management'])
 
 function isApprovedUser(user: User | null): boolean {
@@ -41,8 +42,9 @@ function isApprovedAdmin(user: User | null): boolean {
 }
 
 function tabFromHash(): string {
-  const hash = window.location.hash.replace('#', '').toLowerCase()
-  return HASH_TO_TAB[hash] ?? 'Home'
+  const raw = window.location.hash.replace('#', '').toLowerCase()
+  const base = raw.split('/')[0] || 'home'
+  return HASH_TO_TAB[base] ?? 'Home'
 }
 
 function screenFromHash(): 'home' | 'login' | 'signup' | 'forgot' | 'change-password' {
@@ -62,6 +64,31 @@ function App() {
   })
   const [activeTab, setActiveTab] = useState<string>(tabFromHash)
 
+  const syncCurrentUserFromStorage = () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null') as User | null
+      setCurrentUser(storedUser)
+      setIsLoggedIn(Boolean(localStorage.getItem('token')))
+    } catch {
+      setCurrentUser(null)
+      setIsLoggedIn(false)
+    }
+  }
+
+  useEffect(() => {
+    const handleUserUpdated = () => syncCurrentUserFromStorage()
+    window.addEventListener('user-updated', handleUserUpdated)
+    return () => window.removeEventListener('user-updated', handleUserUpdated)
+  }, [])
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      connectSocket()
+    } else {
+      disconnectSocket()
+    }
+  }, [isLoggedIn])
+
   useEffect(() => {
     if (!localStorage.getItem('token')) return
     getCurrentUser()
@@ -80,23 +107,47 @@ function App() {
 
   useEffect(() => {
     const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').toLowerCase()
       const nextScreen = screenFromHash()
       setScreen(nextScreen)
-      if (nextScreen === 'home') {
-        setActiveTab(tabFromHash())
+
+      if (nextScreen !== 'home') {
+        return
       }
+
+      if (hash === 'home' && isLoggedIn && isApprovedUser(currentUser)) {
+        setActiveTab('Dashboard')
+        return
+      }
+
+      setActiveTab(tabFromHash())
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
+  }, [currentUser, isLoggedIn])
 
-  // Ensure default landing page is Home for anonymous visitors.
   useEffect(() => {
     if (!isLoggedIn) {
       setScreen('home')
       setActiveTab('Home')
+      return
     }
-  }, [isLoggedIn])
+
+    const hash = window.location.hash.replace('#', '').toLowerCase()
+    if (!hash || hash === 'home') {
+      if (isApprovedUser(currentUser)) {
+        setActiveTab('Dashboard')
+        try { window.location.hash = '#dashboard' } catch (e) { /* ignore */ }
+      } else {
+        setActiveTab('Pending Approval')
+        try { window.location.hash = '#pending-approval' } catch (e) { /* ignore */ }
+      }
+      return
+    }
+
+    setScreen('home')
+    setActiveTab(tabFromHash())
+  }, [currentUser, isLoggedIn])
 
   const handleLoginClick = () => {
     setScreen('login')
@@ -115,12 +166,15 @@ function App() {
     }
 
     setScreen('home')
-    const nextTab = isApprovedUser(user) ? 'Home' : 'Pending Approval'
+    const nextTab = isApprovedUser(user) ? 'Dashboard' : 'Pending Approval'
     setActiveTab(nextTab)
-    try { window.location.hash = isApprovedUser(user) ? '#home' : '#pending-approval' } catch (e) { /* ignore */ }
+    try { window.location.hash = isApprovedUser(user) ? '#dashboard' : '#pending-approval' } catch (e) { /* ignore */ }
   }
 
   const handleLogout = () => {
+    disconnectSocket()
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
     setIsLoggedIn(false)
     setCurrentUser(null)
     setScreen('home')
@@ -182,8 +236,8 @@ function App() {
             localStorage.setItem('user', JSON.stringify(user))
             setScreen('home')
             setIsLoggedIn(true)
-            setActiveTab('Home')
-            try { window.location.hash = '#home' } catch (e) { /* ignore */ }
+            setActiveTab('Dashboard')
+            try { window.location.hash = '#dashboard' } catch (e) { /* ignore */ }
           })
         }}
         onBackToLogin={() => setScreen('login')}
@@ -195,6 +249,10 @@ function App() {
     switch (activeTab) {
       case 'Home':
         return <Home isLoggedIn={isLoggedIn && isApprovedUser(currentUser)} isAdmin={isApprovedAdmin(currentUser)} onSignIn={handleLoginClick} onSignUp={() => setScreen('signup')} />
+      case 'Dashboard':
+        if (!isLoggedIn) return <Home isLoggedIn={false} onSignIn={handleLoginClick} onSignUp={() => setScreen('signup')} />
+        if (!isApprovedUser(currentUser)) return <PendingApproval user={currentUser} onLogout={handleLogout} />
+        return <Dashboard onTabChange={handleTabChange} />
       case 'Pending Approval':
         return <PendingApproval user={currentUser} onLogout={handleLogout} />
       case 'Profile':

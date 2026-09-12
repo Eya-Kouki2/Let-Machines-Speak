@@ -39,3 +39,7 @@ desktop.ini
 # Always preserve .gitkeep files in all directories
 !.gitkeep
 !**/.gitkeep
+
+# Uploads
+backend/uploads/*
+!backend/uploads/**/.gitkeep

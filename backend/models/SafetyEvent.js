@@ -21,6 +21,7 @@ const safetyEventSchema = new mongoose.Schema(
       required: true,
       trim: true,
       enum: SAFETY_EVENT_TYPES,
+      index: true,
     },
     confidence: {
       type: Number,

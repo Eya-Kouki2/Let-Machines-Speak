@@ -3,6 +3,7 @@ import { SafetyAlertBanner } from "./SafetyAlertBanner";
 import { EventDetailsPanel } from "./EventDetailsPanel";
 import { RecentEventsTable } from "./RecentEventsTable";
 import { formatDate, formatTime } from "./format";
+import { downloadSafetyReport } from "../../services/reportService";
 
 export function SafetyMonitoringPage() {
   const { events, latestAlert, isLoading } = useWorkerSafetyData();
@@ -22,6 +23,14 @@ export function SafetyMonitoringPage() {
         </div>
         <div className="safety-page-meta">
           <span>{formatDate(now)} · {formatTime(now)}</span>
+          <button
+            type="button"
+            className="btn-go-dashboard"
+            onClick={() => downloadSafetyReport(events, latestAlert)}
+            style={{ marginLeft: '12px' }}
+          >
+            Download PDF Report
+          </button>
           <span className="safety-live-badge"><span className="safety-live-dot" /> Live</span>
         </div>
       </div>

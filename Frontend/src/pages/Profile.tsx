@@ -78,6 +78,7 @@ export function Profile() {
       const nextUser = { ...storedUser, ...updatedUser }
       localStorage.setItem('user', JSON.stringify(nextUser))
       setUser(updatedUser)
+      window.dispatchEvent(new Event('user-updated'))
       setIsEditing(false)
       setSuccess('Profile updated successfully.')
     } catch (saveError) {
@@ -112,7 +113,8 @@ export function Profile() {
       const storedUser = JSON.parse(localStorage.getItem('user') || 'null')
       const mergedUser = { ...storedUser, ...result.user, profileImage: result.profileImage }
       localStorage.setItem('user', JSON.stringify(mergedUser))
-      setUser(result.user)
+      setUser({ ...result.user, profileImage: result.profileImage })
+      window.dispatchEvent(new Event('user-updated'))
       setSuccess('Photo updated successfully.')
       setImagePreview(null)
     } catch (uploadError) {
