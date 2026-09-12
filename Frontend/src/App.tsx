@@ -6,6 +6,7 @@ import { Login } from './pages/auth/login'
 import { SignUp } from './pages/auth/signup'
 import { MachineHealth } from './pages/MachineHealth'
 import { UnderConstruction } from './pages/UnderConstruction'
+import { SafetyMonitoringPage } from './pages/worker-safety/SafetyMonitoringPage'
 
 const HASH_TO_TAB: Record<string, string> = {
   home:      'Home',
@@ -112,6 +113,10 @@ function App() {
         return <Profile />
       case 'Machine Health':
         return <MachineHealth />
+      case 'Safety':
+        return <SafetyMonitoringPage />
+      case 'Alerts':
+        return <SafetyMonitoringPage />
       default:
         return <UnderConstruction pageName={activeTab} />
     }
