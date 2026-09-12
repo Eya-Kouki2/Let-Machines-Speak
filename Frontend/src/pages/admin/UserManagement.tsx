@@ -30,11 +30,22 @@ const emptyForm: UserForm = {
   workZone: '',
 }
 
-function Badge({ value }: { value: string }) {
-  return <span className={`admin-badge admin-badge-${value.toLowerCase()}`}>{value}</span>
+function formatDate(value?: string | null) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export function UserManagement() {
+function badgeClassForAccountStatus(active: boolean) {
+  return active ? 'admin-badge-active' : 'admin-badge-inactive'
+}
+
+function badgeClassForApprovalStatus(status: ApprovalStatus) {
+  if (status === 'PENDING') return 'admin-badge-pending'
+  if (status === 'REJECTED') return 'admin-badge-rejected'
+  return 'admin-badge-approved'
+}
+
+function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | 'ALL'>('ALL')
@@ -43,7 +54,17 @@ export function UserManagement() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState<UserForm>(emptyForm)
+  const [showModal, setShowModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [draft, setDraft] = useState<UserForm>(emptyForm)
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [confirmAction, setConfirmAction] = useState<null | {
+    title: string
+    description: string
+    actionLabel: string
+    danger?: boolean
+    onConfirm: () => Promise<void> | void
+  }>(null)
 
   async function loadUsers() {
     setLoading(true)
@@ -67,139 +88,284 @@ export function UserManagement() {
   }), [users])
 
   const filteredUsers = useMemo(() => users.filter((user) => {
-    const matchesSearch = `${user.name} ${user.email}`.toLowerCase().includes(query.toLowerCase())
+    const value = `${user.name} ${user.email} ${user.role}`.toLowerCase()
+    const matchesSearch = value.includes(query.toLowerCase())
     const matchesRole = roleFilter === 'ALL' || user.role === roleFilter
     const matchesApproval = approvalFilter === 'ALL' || user.approvalStatus === approvalFilter
     const matchesStatus = statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? user.active : !user.active)
     return matchesSearch && matchesRole && matchesApproval && matchesStatus
   }), [approvalFilter, query, roleFilter, statusFilter, users])
 
-  async function createUser(event: React.FormEvent) {
+  function openCreateModal() {
+    setEditingUser(null)
+    setDraft(emptyForm)
+    setShowModal(true)
+  }
+
+  function openEditModal(user: User) {
+    setEditingUser(user)
+    setDraft({
+      name: user.name,
+      email: user.email,
+      password: '',
+      confirmPassword: '',
+      role: user.role,
+      age: user.age?.toString() ?? '',
+      yearsOfExperience: user.yearsOfExperience?.toString() ?? '',
+      workZone: user.workZone ?? '',
+    })
+    setShowModal(true)
+  }
+
+  function closeModal() {
+    setShowModal(false)
+    setEditingUser(null)
+    setDraft(emptyForm)
+  }
+
+  async function saveUser(event: React.FormEvent) {
     event.preventDefault()
     setError('')
     setSuccess('')
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match')
+
+    if (!draft.name.trim() || !draft.email.trim()) {
+      setError('Full name and email are required.')
       return
     }
-    await usersApi.create({
-      name: form.name,
-      email: form.email,
-      password: form.password,
-      role: form.role,
-      age: form.age ? Number(form.age) : undefined,
-      yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
-      workZone: form.workZone,
-    })
-    setSuccess(form.role === 'ADMIN' ? 'Admin account created as pending approval.' : 'User account created.')
-    setForm(emptyForm)
-    await loadUsers()
+
+    if (!editingUser && (!draft.password || !draft.confirmPassword)) {
+      setError('Password and confirm password are required.')
+      return
+    }
+
+    if (!editingUser && draft.password !== draft.confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    const payload = {
+      name: draft.name.trim(),
+      email: draft.email.trim().toLowerCase(),
+      role: draft.role,
+      age: draft.age ? Number(draft.age) : undefined,
+      yearsOfExperience: draft.yearsOfExperience ? Number(draft.yearsOfExperience) : undefined,
+      workZone: draft.workZone.trim(),
+      ...(editingUser ? {} : { password: draft.password }),
+    }
+
+    try {
+      if (editingUser) {
+        await usersApi.update(editingUser.id, payload)
+        setSuccess('User updated successfully.')
+      } else {
+        await usersApi.create(payload)
+        setSuccess(draft.role === 'ADMIN' ? 'Admin account created and is pending approval.' : 'User created successfully.')
+      }
+      closeModal()
+      await loadUsers()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save user.')
+    }
   }
 
   async function updateUser(user: User, patch: Partial<User>) {
     setError('')
     setSuccess('')
-    if (patch.role === 'ADMIN' && !window.confirm(`${user.name} will become a pending admin request until approved. Continue?`)) return
-    await usersApi.update(user.id, patch)
-    setSuccess('User updated.')
-    await loadUsers()
+    try {
+      if (patch.role === 'ADMIN' && user.role !== 'ADMIN') {
+        setConfirmAction({
+          title: 'Update role?',
+          description: `${user.name} will be converted to a pending admin request until approved.`,
+          actionLabel: 'Continue',
+          onConfirm: async () => {
+            await usersApi.update(user.id, patch)
+            setSuccess('User role updated.')
+            setConfirmAction(null)
+            await loadUsers()
+          },
+        })
+        return
+      }
+      await usersApi.update(user.id, patch)
+      setSuccess('User updated.')
+      await loadUsers()
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Unable to update user.')
+    }
   }
 
   async function approveUser(user: User) {
-    if (!window.confirm(`Approve admin access for ${user.name}?`)) return
-    await usersApi.approveAdmin(user.id)
-    setSuccess(`${user.name} approved as admin.`)
-    await loadUsers()
+    setError('')
+    setSuccess('')
+    try {
+      await usersApi.approveAdmin(user.id)
+      setSuccess(`${user.name} approved as admin.`)
+      setMenuOpenId(null)
+      await loadUsers()
+    } catch (approveError) {
+      setError(approveError instanceof Error ? approveError.message : 'Unable to approve admin.')
+    }
   }
 
   async function rejectUser(user: User) {
-    if (!window.confirm(`Reject admin request for ${user.name}?`)) return
-    await usersApi.rejectAdmin(user.id)
-    setSuccess(`${user.name} admin request rejected.`)
-    await loadUsers()
+    setError('')
+    setSuccess('')
+    try {
+      await usersApi.rejectAdmin(user.id)
+      setSuccess(`${user.name}'s admin request was rejected.`)
+      setMenuOpenId(null)
+      await loadUsers()
+    } catch (rejectError) {
+      setError(rejectError instanceof Error ? rejectError.message : 'Unable to reject admin request.')
+    }
   }
 
   async function deleteUser(user: User) {
-    if (!window.confirm(`Delete ${user.name}? This action cannot be undone.`)) return
-    await usersApi.remove(user.id)
-    setSuccess('User deleted.')
-    await loadUsers()
+    setConfirmAction({
+      title: 'Delete this user?',
+      description: `This will remove ${user.name} from the system. This action cannot be undone.`,
+      actionLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await usersApi.remove(user.id)
+          setSuccess('User deleted successfully.')
+          setMenuOpenId(null)
+          setConfirmAction(null)
+          await loadUsers()
+        } catch (deleteError) {
+          setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete user.')
+          setConfirmAction(null)
+        }
+      },
+    })
   }
 
   return (
-    <div className="admin-page">
-      <div className="admin-header">
+    <div className="admin-page-shell">
+      <div className="admin-header-block">
         <div>
-          <h1>User Management</h1>
-          <p>Manage users, account status, and admin approval requests in one place.</p>
+          <p className="admin-kicker">User Management</p>
+          <h1>Manage users, roles, account status, and admin approvals.</h1>
         </div>
-        <input className="admin-input" placeholder="Search name or email..." value={query} onChange={(event) => setQuery(event.target.value)} />
       </div>
 
-      <div className="admin-summary-grid">
-        <div className="admin-summary-card"><span>Total Users</span><strong>{summary.total}</strong></div>
-        <div className="admin-summary-card"><span>Active Users</span><strong>{summary.active}</strong></div>
-        <div className="admin-summary-card"><span>Admins</span><strong>{summary.admins}</strong></div>
-        <div className="admin-summary-card"><span>Pending Admins</span><strong>{summary.pending}</strong></div>
+      <div className="admin-kpi-grid">
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-icon admin-kpi-icon-green">U</div>
+          <div className="admin-kpi-meta">
+            <span>Total Users</span>
+            <strong>{summary.total}</strong>
+          </div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-icon admin-kpi-icon-emerald">A</div>
+          <div className="admin-kpi-meta">
+            <span>Active Users</span>
+            <strong>{summary.active}</strong>
+            <small>{summary.total ? `${Math.round((summary.active / summary.total) * 100)}% active` : '0% active'}</small>
+          </div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-icon admin-kpi-icon-orange">R</div>
+          <div className="admin-kpi-meta">
+            <span>Admins</span>
+            <strong>{summary.admins}</strong>
+          </div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-icon admin-kpi-icon-warning">P</div>
+          <div className="admin-kpi-meta">
+            <span>Pending Admins</span>
+            <strong>{summary.pending}</strong>
+          </div>
+        </div>
       </div>
 
-      {error && <div className="admin-error">{error}</div>}
-      {success && <div className="admin-success">{success}</div>}
+      {error && <div className="admin-banner admin-banner-error">{error}</div>}
+      {success && <div className="admin-banner admin-banner-success">{success}</div>}
 
-      <form className="admin-card admin-form admin-form-expanded" onSubmit={createUser}>
-        <input className="admin-input" placeholder="Full Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
-        <input className="admin-input" type="email" placeholder="Email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
-        <input className="admin-input" type="password" placeholder="Password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required minLength={8} />
-        <input className="admin-input" type="password" placeholder="Confirm Password" value={form.confirmPassword} onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} required minLength={8} />
-        <select className="admin-input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}>
-          {roles.map((role) => <option key={role} value={role}>{role === 'USER' ? 'User' : 'Admin'}</option>)}
-        </select>
-        <input className="admin-input" type="number" min="18" placeholder="Age" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} />
-        <input className="admin-input" type="number" min="0" placeholder="Years of Experience" value={form.yearsOfExperience} onChange={(event) => setForm({ ...form, yearsOfExperience: event.target.value })} />
-        <input className="admin-input" placeholder="Work Zone" value={form.workZone} onChange={(event) => setForm({ ...form, workZone: event.target.value })} />
-        {form.role === 'ADMIN' && <p className="admin-form-note">Admin accounts are created as pending and require approval from another approved admin.</p>}
-        <button className="btn-go-dashboard" type="submit">Add User</button>
-      </form>
-
-      <div className="admin-card admin-filter-row">
-        <select className="admin-input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as UserRole | 'ALL')}>
-          <option value="ALL">All roles</option>
-          {roles.map((role) => <option key={role} value={role}>{role}</option>)}
-        </select>
-        <select className="admin-input" value={approvalFilter} onChange={(event) => setApprovalFilter(event.target.value as ApprovalStatus | 'ALL')}>
-          {approvalStatuses.map((status) => <option key={status} value={status}>{status === 'ALL' ? 'All approval' : status}</option>)}
-        </select>
-        <select className="admin-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
-          {statusFilters.map((status) => <option key={status} value={status}>{status === 'ALL' ? 'All status' : status}</option>)}
-        </select>
+      <div className="admin-toolbar">
+        <div className="admin-search-wrap">
+          <input
+            className="admin-input"
+            placeholder="Search users..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <div className="admin-toolbar-filters">
+          <select className="admin-input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as UserRole | 'ALL')}>
+            <option value="ALL">All Roles</option>
+            {roles.map((role) => <option key={role} value={role}>{role}</option>)}
+          </select>
+          <select className="admin-input" value={approvalFilter} onChange={(event) => setApprovalFilter(event.target.value as ApprovalStatus | 'ALL')}>
+            {approvalStatuses.map((status) => <option key={status} value={status}>{status === 'ALL' ? 'All Approval' : status}</option>)}
+          </select>
+          <select className="admin-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
+            {statusFilters.map((status) => <option key={status} value={status}>{status === 'ALL' ? 'All Status' : status}</option>)}
+          </select>
+        </div>
+        <button type="button" className="admin-primary-btn" onClick={openCreateModal}>+ Add User</button>
       </div>
 
-      <div className="admin-card">
-        {loading ? <p>Loading users...</p> : (
+      <div className="admin-card admin-table-card">
+        {loading ? (
+          <div className="admin-empty-state">Loading users...</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="admin-empty-state">No users found</div>
+        ) : (
           <table className="admin-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Account Status</th><th>Approval Status</th><th>Created At</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Account Status</th>
+                <th>Approval Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>{user.name}</td>
-                  <td>{user.email}</td>
+                <tr key={user.id} className={user.role === 'ADMIN' && user.approvalStatus === 'PENDING' ? 'admin-pending-row' : ''}>
                   <td>
-                    <select value={user.role} onChange={(event) => void updateUser(user, { role: event.target.value as UserRole })}>
-                      {roles.map((role) => <option key={role} value={role}>{role}</option>)}
-                    </select>
+                    <div className="admin-user-cell">
+                      <div className="admin-user-avatar">{user.name.slice(0, 2).toUpperCase() || 'U'}</div>
+                      <div className="admin-user-copy">
+                        <strong>{user.name}</strong>
+                        <span>{user.role === 'ADMIN' ? 'Administrator' : 'User'}</span>
+                      </div>
+                    </div>
                   </td>
-                  <td><Badge value={user.active ? 'ACTIVE' : 'INACTIVE'} /></td>
-                  <td><Badge value={user.approvalStatus || 'APPROVED'} /></td>
-                  <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</td>
-                  <td className="admin-actions">
-                    {user.role === 'ADMIN' && user.approvalStatus === 'PENDING' && (
-                      <>
-                        <button type="button" onClick={() => void approveUser(user)}>Approve</button>
-                        <button type="button" onClick={() => void rejectUser(user)}>Reject</button>
-                      </>
-                    )}
-                    <button type="button" onClick={() => void updateUser(user, { active: !user.active })}>{user.active ? 'Deactivate' : 'Activate'}</button>
-                    <button type="button" onClick={() => void deleteUser(user)}>Delete</button>
+                  <td>{user.email}</td>
+                  <td><span className={`admin-role-badge ${user.role === 'ADMIN' ? 'admin-role-admin' : 'admin-role-user'}`}>{user.role}</span></td>
+                  <td><span className={`admin-badge ${badgeClassForAccountStatus(user.active)}`}>{user.active ? 'ACTIVE' : 'INACTIVE'}</span></td>
+                  <td><span className={`admin-badge ${badgeClassForApprovalStatus(user.approvalStatus || 'APPROVED')}`}>{user.approvalStatus || 'APPROVED'}</span></td>
+                  <td>{formatDate(user.createdAt)}</td>
+                  <td>
+                    <div className="admin-action-menu-wrap">
+                      <button type="button" className="admin-menu-trigger" onClick={() => setMenuOpenId((current) => current === user.id ? null : user.id)}>
+                        ⋯
+                      </button>
+                      {menuOpenId === user.id && (
+                        <div className="admin-action-menu">
+                          <button type="button" onClick={() => { openEditModal(user); setMenuOpenId(null) }}>View</button>
+                          <button type="button" onClick={() => { openEditModal(user); setMenuOpenId(null) }}>Edit</button>
+                          <button type="button" onClick={() => { void updateUser(user, { active: !user.active }); setMenuOpenId(null) }}>
+                            {user.active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          {user.role === 'ADMIN' && user.approvalStatus === 'PENDING' && (
+                            <>
+                              <button type="button" onClick={() => { void approveUser(user); setMenuOpenId(null) }}>Approve</button>
+                              <button type="button" onClick={() => { void rejectUser(user); setMenuOpenId(null) }}>Reject</button>
+                            </>
+                          )}
+                          <button type="button" className="admin-action-danger" onClick={() => { deleteUser(user); setMenuOpenId(null) }}>Delete</button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -207,6 +373,98 @@ export function UserManagement() {
           </table>
         )}
       </div>
+
+      {showModal && (
+        <div className="admin-modal-backdrop" onClick={closeModal}>
+          <div className="admin-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="admin-modal-header">
+              <div>
+                <p className="admin-kicker">{editingUser ? 'Edit User' : 'Add User'}</p>
+                <h3>{editingUser ? 'Update account details' : 'Create a new user'}</h3>
+              </div>
+              <button type="button" className="admin-close-btn" onClick={closeModal}>×</button>
+            </div>
+
+            <form onSubmit={saveUser} className="admin-form-modal">
+              <div className="admin-form-section">
+                <h4>Account</h4>
+                <div className="admin-form-grid">
+                  <label className="admin-field">
+                    <span>Full Name</span>
+                    <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
+                  </label>
+                  <label className="admin-field">
+                    <span>Email</span>
+                    <input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} required />
+                  </label>
+                  <label className="admin-field">
+                    <span>Role</span>
+                    <select value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value as UserRole })}>
+                      {roles.map((role) => <option key={role} value={role}>{role}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              {!editingUser && (
+                <div className="admin-form-section">
+                  <h4>Security</h4>
+                  <div className="admin-form-grid">
+                    <label className="admin-field">
+                      <span>Password</span>
+                      <input type="password" value={draft.password} onChange={(event) => setDraft({ ...draft, password: event.target.value })} required />
+                    </label>
+                    <label className="admin-field">
+                      <span>Confirm Password</span>
+                      <input type="password" value={draft.confirmPassword} onChange={(event) => setDraft({ ...draft, confirmPassword: event.target.value })} required />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="admin-form-section">
+                <h4>Work Information</h4>
+                <div className="admin-form-grid">
+                  <label className="admin-field">
+                    <span>Age</span>
+                    <input type="number" min="0" max="120" value={draft.age} onChange={(event) => setDraft({ ...draft, age: event.target.value })} />
+                  </label>
+                  <label className="admin-field">
+                    <span>Years of Experience</span>
+                    <input type="number" min="0" value={draft.yearsOfExperience} onChange={(event) => setDraft({ ...draft, yearsOfExperience: event.target.value })} />
+                  </label>
+                  <label className="admin-field admin-field-full">
+                    <span>Work Zone</span>
+                    <input value={draft.workZone} onChange={(event) => setDraft({ ...draft, workZone: event.target.value })} placeholder="e.g. Zone A" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="admin-modal-actions">
+                <button type="button" className="admin-secondary-btn" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="admin-primary-btn">{editingUser ? 'Save Changes' : 'Create User'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="admin-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="admin-confirm" onClick={(event) => event.stopPropagation()}>
+            <h3>{confirmAction.title}</h3>
+            <p>{confirmAction.description}</p>
+            <div className="admin-modal-actions">
+              <button type="button" className="admin-secondary-btn" onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button type="button" className={`admin-primary-btn ${confirmAction.danger ? 'admin-danger-btn' : ''}`} onClick={() => { void confirmAction.onConfirm() }}>
+                {confirmAction.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+export { UserManagement }

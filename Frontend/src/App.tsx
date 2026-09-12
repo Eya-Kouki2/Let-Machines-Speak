@@ -10,6 +10,7 @@ import { SignUp } from './pages/auth/signup'
 import { MachineHealth } from './pages/MachineHealth'
 import { UnderConstruction } from './pages/UnderConstruction'
 import { SafetyMonitoringPage } from './pages/worker-safety/SafetyMonitoringPage'
+import { AlertsPage } from './pages/AlertsPage'
 import { UserManagement } from './pages/admin/UserManagement'
 import { MachineManagement } from './pages/admin/MachineManagement'
 import { PendingApproval } from './pages/auth/PendingApproval'
@@ -274,7 +275,7 @@ function App() {
         return <SafetyMonitoringPage />
       case 'Alerts':
         if (!isApprovedUser(currentUser)) return <Login onLogin={handleLoginSuccess} onSignUp={() => setScreen('signup')} />
-        return <SafetyMonitoringPage />
+        return <AlertsPage />
       case 'Users':
         return isApprovedAdmin(currentUser) ? <UserManagement /> : <UnderConstruction pageName="Unauthorized" />
       case 'Machine Management':

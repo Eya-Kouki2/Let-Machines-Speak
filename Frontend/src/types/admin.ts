@@ -12,6 +12,7 @@ export interface User {
   isApproved: boolean
   approvalStatus: ApprovalStatus
   age?: number | null
+  yearsOfExperience?: number | null
   workZone?: string | null
   profileImage?: string | null
   mustChangePassword?: boolean

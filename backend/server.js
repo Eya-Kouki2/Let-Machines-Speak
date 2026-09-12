@@ -12,6 +12,7 @@ const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const dashboardRoutes = require('./routes/dashboard');
 const safetyRoutes = require('./routes/safety');
+const alertRoutes = require('./routes/alerts');
 const platformSettingsRoutes = require('./routes/platformSettings');
 const { connectDatabase } = require('./config/database');
 
@@ -61,6 +62,7 @@ app.use('/api/machines', machineManagementRoutes);
 app.use('/api/machines', machineHealthRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/safety', safetyRoutes);
+app.use('/api/alerts', alertRoutes);
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

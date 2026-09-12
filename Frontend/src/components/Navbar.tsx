@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import type { User } from '../types/admin'
 import { LabesLogo } from './LabesLogo'
 import { getMediaUrl } from '../services/profileApi'
+import { getUnreadAlertCount } from '../services/alertsApi'
+import { useSocket } from '../hooks/useSocket'
 
 export type NavMode = 'top' | 'side'
 
@@ -21,9 +23,11 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [internalActiveTab, setInternalActiveTab] = useState('Home')
+  const [unreadAlertCount, setUnreadAlertCount] = useState(0)
   const activeTab = externalActiveTab !== undefined ? externalActiveTab : internalActiveTab
   const [mode, setMode] = useState<NavMode>(initialMode)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const socket = useSocket()
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -42,6 +46,38 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
     setMode(nextMode)
     onModeChange?.(nextMode)
   }
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setUnreadAlertCount(0)
+      return
+    }
+
+    let ignore = false
+    const refreshUnread = async () => {
+      try {
+        const result = await getUnreadAlertCount()
+        if (!ignore) setUnreadAlertCount(result.count || 0)
+      } catch {
+        if (!ignore) setUnreadAlertCount(0)
+      }
+    }
+
+    void refreshUnread()
+
+    const handleAlertUpdate = () => {
+      void refreshUnread()
+    }
+
+    socket.on('alert:created', handleAlertUpdate)
+    socket.on('alert:updated', handleAlertUpdate)
+
+    return () => {
+      ignore = true
+      socket.off('alert:created', handleAlertUpdate)
+      socket.off('alert:updated', handleAlertUpdate)
+    }
+  }, [isLoggedIn, socket, activeTab])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -263,6 +299,9 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
             >
               <span className="nav-link-icon">{item.icon}</span>
               <span className="nav-link-text">{item.name}</span>
+              {item.name === 'Alerts' && unreadAlertCount > 0 && (
+                <span className="nav-alert-badge">{unreadAlertCount > 99 ? '99+' : unreadAlertCount}</span>
+              )}
               {activeTab === item.name && <span className="soft-active-dot"></span>}
             </a>
           ))}
