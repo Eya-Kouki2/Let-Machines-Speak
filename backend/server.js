@@ -12,6 +12,7 @@ const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const dashboardRoutes = require('./routes/dashboard');
 const safetyRoutes = require('./routes/safety');
+const platformSettingsRoutes = require('./routes/platformSettings');
 const { connectDatabase } = require('./config/database');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -43,6 +44,7 @@ const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/settings', platformSettingsRoutes);
 
 app.get('/', (_req, res) => {
   res.json({ success: true, message: 'API is running…' });

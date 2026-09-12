@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { Home } from './pages/Home'
 import { Dashboard } from './pages/Dashboard'
 import { Profile } from './pages/Profile'
+import { Settings } from './pages/Settings'
 import { Login } from './pages/auth/login'
 import { SignUp } from './pages/auth/signup'
 import { MachineHealth } from './pages/MachineHealth'
@@ -26,12 +27,14 @@ const HASH_TO_TAB: Record<string, string> = {
   safety:    'Safety',
   alerts:    'Alerts',
   profile:   'Profile',
+  setting:   'Settings',
+  settings:  'Settings',
   users: 'Users',
   'machine-management': 'Machine Management',
   'pending-approval': 'Pending Approval',
 }
 
-const protectedTabs = new Set(['Dashboard', 'Machine Health', 'Safety', 'Alerts', 'Profile'])
+const protectedTabs = new Set(['Dashboard', 'Machine Health', 'Safety', 'Alerts', 'Profile', 'Settings'])
 const adminTabs = new Set(['Users', 'Machine Management'])
 
 function isApprovedUser(user: User | null): boolean {
@@ -180,6 +183,7 @@ function App() {
     setCurrentUser(null)
     setScreen('home')
     setActiveTab('Home')
+    try { window.location.hash = '#home' } catch (e) { /* ignore */ }
   }
 
   const handleTabChange = (tab: string) => {
@@ -259,6 +263,9 @@ function App() {
       case 'Profile':
         if (!isApprovedUser(currentUser)) return <PendingApproval user={currentUser} onLogout={handleLogout} />
         return <Profile />
+      case 'Settings':
+        if (!isLoggedIn || !isApprovedUser(currentUser)) return <Login onLogin={handleLoginSuccess} onSignUp={() => setScreen('signup')} />
+        return <Settings currentUser={currentUser} />
       case 'Machine Health':
         if (!isApprovedUser(currentUser)) return <Login onLogin={handleLoginSuccess} onSignUp={() => setScreen('signup')} />
         return <MachineHealth />

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const User = require('../models/user');
 const { validatePassword } = require('../utils/passwordValidation');
 
-test('user safe object includes profile and names', () => {
+test('user safe object includes profile and settings fields', () => {
   const user = new User({
     name: 'Labes Admin',
     email: 'admin@labes.local',
@@ -12,6 +12,20 @@ test('user safe object includes profile and names', () => {
     lastName: 'Admin',
     profileImage: '/uploads/profiles/test.png',
     mustChangePassword: true,
+    preferences: {
+      theme: 'dark',
+      density: 'compact',
+      reducedMotion: true,
+      dashboardAnimations: false,
+    },
+    notifications: {
+      machineAlerts: true,
+      criticalMachineAlerts: true,
+      safetyAlerts: false,
+      emailNotifications: true,
+      inAppNotifications: true,
+      dailySummary: false,
+    },
   });
 
   const safeUser = user.toSafeObject();
@@ -20,6 +34,9 @@ test('user safe object includes profile and names', () => {
   assert.equal(safeUser.lastName, 'Admin');
   assert.equal(safeUser.profileImage, '/uploads/profiles/test.png');
   assert.equal(safeUser.mustChangePassword, true);
+  assert.equal(safeUser.preferences.theme, 'dark');
+  assert.equal(safeUser.notifications.machineAlerts, true);
+  assert.equal(safeUser.notifications.safetyAlerts, false);
 });
 
 test('password validation requires uppercase, lowercase, number and symbol', () => {

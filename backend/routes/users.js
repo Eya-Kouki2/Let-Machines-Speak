@@ -6,7 +6,9 @@ const { upload } = require('../config/upload');
 const router = express.Router();
 
 router.get('/me', requireAuth, usersController.getCurrentUser);
+router.get('/me/settings', requireAuth, usersController.getUserSettings);
 router.patch('/me', requireAuth, usersController.updateCurrentUser);
+router.patch('/me/settings', requireAuth, usersController.updateUserSettings);
 router.patch('/me/password', requireAuth, usersController.changePassword);
 router.post('/me/avatar', requireAuth, upload.single('avatar'), usersController.uploadAvatar);
 

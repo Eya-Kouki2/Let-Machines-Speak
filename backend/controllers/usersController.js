@@ -85,6 +85,103 @@ exports.getCurrentUser = async (req, res) => {
   return res.json({ success: true, data: safeUser(req.user) });
 };
 
+function normalizeSettingsPayload(payload = {}) {
+  const next = {};
+  if (payload.preferences && typeof payload.preferences === 'object') {
+    const preferences = payload.preferences;
+    next.preferences = {
+      theme: ['light', 'dark', 'system'].includes(preferences.theme) ? preferences.theme : 'system',
+      density: ['comfortable', 'compact'].includes(preferences.density) ? preferences.density : 'comfortable',
+      reducedMotion: Boolean(preferences.reducedMotion),
+      dashboardAnimations: Boolean(preferences.dashboardAnimations),
+      liveDashboardUpdates: preferences.liveDashboardUpdates === false ? false : true,
+    };
+  }
+
+  if (payload.notifications && typeof payload.notifications === 'object') {
+    const notifications = payload.notifications;
+    next.notifications = {
+      machineAlerts: notifications.machineAlerts !== false,
+      criticalMachineAlerts: notifications.criticalMachineAlerts !== false,
+      safetyAlerts: notifications.safetyAlerts !== false,
+      emailNotifications: notifications.emailNotifications !== false,
+      inAppNotifications: notifications.inAppNotifications !== false,
+      dailySummary: Boolean(notifications.dailySummary),
+    };
+  }
+
+  if (payload.privacy && typeof payload.privacy === 'object') {
+    const privacy = payload.privacy;
+    next.privacy = {
+      showAccountEmail: privacy.showAccountEmail !== false,
+      liveDataRefresh: privacy.liveDataRefresh !== false,
+    };
+  }
+
+  return next;
+}
+
+exports.getUserSettings = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    return res.json({
+      success: true,
+      data: {
+        preferences: user.preferences || {
+          theme: 'system',
+          density: 'comfortable',
+          reducedMotion: false,
+          dashboardAnimations: true,
+          liveDashboardUpdates: true,
+        },
+        notifications: user.notifications || {
+          machineAlerts: true,
+          criticalMachineAlerts: true,
+          safetyAlerts: true,
+          emailNotifications: true,
+          inAppNotifications: true,
+          dailySummary: false,
+        },
+        privacy: user.privacy || {
+          showAccountEmail: true,
+          liveDataRefresh: true,
+        },
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.updateUserSettings = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const nextSettings = normalizeSettingsPayload(req.body || {});
+    if (Object.keys(nextSettings).length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid settings provided.' });
+    }
+
+    Object.assign(user, nextSettings);
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Settings saved successfully.',
+      data: {
+        preferences: user.preferences,
+        notifications: user.notifications,
+        privacy: user.privacy,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 exports.updateCurrentUser = async (req, res, next) => {
   try {
     const allowed = ['firstName', 'lastName', 'age', 'workZone'];

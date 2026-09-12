@@ -83,6 +83,9 @@ exports.login = async (req, res, next) => {
         data: { user: user.toSafeObject() },
       });
     }
+    user.lastLoginAt = new Date();
+    await user.save();
+
     const token = signToken(user);
     const safeUser = user.toSafeObject();
     return res.status(200).json({ success: true, data: { token, user: safeUser }, token, user: safeUser });

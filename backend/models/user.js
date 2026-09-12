@@ -32,6 +32,35 @@ const userSchema = new mongoose.Schema(
     mustChangePassword: { type: Boolean, default: false },
     temporaryPasswordIssuedAt: { type: Date, default: null },
     passwordChangedAt: { type: Date, default: null },
+    lastLoginAt: { type: Date, default: null },
+    preferences: {
+      type: Object,
+      default: {
+        theme: 'system',
+        density: 'comfortable',
+        reducedMotion: false,
+        dashboardAnimations: true,
+        liveDashboardUpdates: true,
+      },
+    },
+    notifications: {
+      type: Object,
+      default: {
+        machineAlerts: true,
+        criticalMachineAlerts: true,
+        safetyAlerts: true,
+        emailNotifications: true,
+        inAppNotifications: true,
+        dailySummary: false,
+      },
+    },
+    privacy: {
+      type: Object,
+      default: {
+        showAccountEmail: true,
+        liveDataRefresh: true,
+      },
+    },
   },
   { timestamps: true }
 );
@@ -86,6 +115,26 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     mustChangePassword: this.mustChangePassword,
     temporaryPasswordIssuedAt: this.temporaryPasswordIssuedAt,
     passwordChangedAt: this.passwordChangedAt,
+    lastLoginAt: this.lastLoginAt,
+    preferences: this.preferences || {
+      theme: 'system',
+      density: 'comfortable',
+      reducedMotion: false,
+      dashboardAnimations: true,
+      liveDashboardUpdates: true,
+    },
+    notifications: this.notifications || {
+      machineAlerts: true,
+      criticalMachineAlerts: true,
+      safetyAlerts: true,
+      emailNotifications: true,
+      inAppNotifications: true,
+      dailySummary: false,
+    },
+    privacy: this.privacy || {
+      showAccountEmail: true,
+      liveDataRefresh: true,
+    },
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };
