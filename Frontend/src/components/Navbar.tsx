@@ -7,15 +7,26 @@ interface NavbarProps {
   onModeChange?: (newMode: NavMode) => void
   activeTab?: string
   onTabChange?: (tabName: string) => void
+  onLoginClick?: () => void
+  onLogout?: () => void
+  isLoggedIn?: boolean
 }
 
-export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: externalActiveTab, onTabChange }: NavbarProps) {
+export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: externalActiveTab, onTabChange, onLoginClick, onLogout, isLoggedIn = false }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [internalActiveTab, setInternalActiveTab] = useState('Home')
   const activeTab = externalActiveTab !== undefined ? externalActiveTab : internalActiveTab
   const [mode, setMode] = useState<NavMode>(initialMode)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setDropdownOpen(false)
+    setMobileMenuOpen(false)
+    onLogout?.()
+  }
 
   useEffect(() => {
     setMode(initialMode)
@@ -61,7 +72,7 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
       )
     },
     {
-      name: 'Machines',
+      name: 'Machine Health',
       href: '#machines',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
@@ -104,6 +115,12 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
     }
   ]
 
+  const savedUser = JSON.parse(localStorage.getItem('user') || '{}')
+  const displayName = savedUser.firstName && savedUser.lastName
+    ? `${savedUser.firstName} ${savedUser.lastName}`
+    : savedUser.firstName || 'User Name'
+  const displayRole = savedUser.role || 'Role'
+
   return (
     <header className={`navbar-fixed-wrapper mode-${mode}`}>
       <div className={`navbar-pill electric-theme ${mobileMenuOpen ? 'mobile-open' : ''}`}>
@@ -124,6 +141,70 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
           </a>
 
           <div className="navbar-header-actions">
+            {isLoggedIn && (
+              <div className={`user-profile-wrapper ${mobileMenuOpen ? 'show-mobile' : ''}`} ref={dropdownRef}>
+                <button
+                  type="button"
+                  className={`user-profile-pill ${dropdownOpen ? 'open' : ''}`}
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  aria-expanded={dropdownOpen}
+                >
+                  <div className="user-avatar-group">
+                    <div className="user-avatar energy-avatar">
+                      <svg viewBox="0 0 24 24" fill="#052e1f" width="18" height="18">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+                    </div>
+                    <div className="user-info">
+                      <span className="user-name">{displayName}</span>
+                      <span className="user-role">{displayRole}</span>
+                    </div>
+                  </div>
+                  <svg
+                    className={`chevron-icon ${dropdownOpen ? 'rotate' : ''}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    width="13"
+                    height="13"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+
+                {dropdownOpen && (
+                  <div className="user-dropdown-menu energy-dropdown">
+                    <a href="#setting" className="dropdown-item" onClick={() => { setDropdownOpen(false); setMobileMenuOpen(false) }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                      </svg>
+                      Setting
+                    </a>
+                    <a href="#profile" className="dropdown-item" onClick={() => { setDropdownOpen(false); setMobileMenuOpen(false) }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                      </svg>
+                      Profile
+                    </a>
+                    <div className="dropdown-divider"></div>
+                    <button type="button" className="dropdown-item logout" onClick={handleLogout}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Mode Switch Toggle Button */}
             <button
               type="button"
@@ -185,70 +266,29 @@ export function Navbar({ mode: initialMode = 'top', onModeChange, activeTab: ext
               {activeTab === item.name && <span className="soft-active-dot"></span>}
             </a>
           ))}
-        </nav>
 
-        {/* User Profile Pill Dropdown */}
-        <div className={`user-profile-wrapper ${mobileMenuOpen ? 'show-mobile' : ''}`} ref={dropdownRef}>
-          <button
-            type="button"
-            className={`user-profile-pill ${dropdownOpen ? 'open' : ''}`}
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            aria-expanded={dropdownOpen}
-          >
-            <div className="user-avatar-group">
-              <div className="user-avatar energy-avatar">
-                <svg viewBox="0 0 24 24" fill="#052e1f" width="18" height="18">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-              </div>
-              <div className="user-info">
-                <span className="user-name">User Name</span>
-                <span className="user-role">Role</span>
-              </div>
-            </div>
-            <svg
-              className={`chevron-icon ${dropdownOpen ? 'rotate' : ''}`}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              width="13"
-              height="13"
+          {!isLoggedIn && (
+            <button
+              type="button"
+              onClick={onLoginClick}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+                color: '#022c22',
+                border: '1px solid rgba(16, 185, 129, 0.5)',
+                borderRadius: '10px',
+                padding: '8px 14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                boxShadow: '0 8px 20px rgba(16, 185, 129, 0.25)',
+                transition: 'all 0.2s ease',
+                marginLeft: '4px',
+              }}
             >
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-
-          {dropdownOpen && (
-            <div className="user-dropdown-menu energy-dropdown">
-              <a href="#setting" className="dropdown-item" onClick={() => { setDropdownOpen(false); setMobileMenuOpen(false) }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                Setting
-              </a>
-              <a href="#profile" className="dropdown-item" onClick={() => { setDropdownOpen(false); setMobileMenuOpen(false) }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                Profile
-              </a>
-              <div className="dropdown-divider"></div>
-              <button type="button" className="dropdown-item logout" onClick={() => { setDropdownOpen(false); setMobileMenuOpen(false) }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                Logout
-              </button>
-            </div>
+              Login
+            </button>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   )
