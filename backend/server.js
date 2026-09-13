@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const path = require('path');
 
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 const { initSocketServer } = require('./services/socketService');
 const { connectMqtt, getConnectionState } = require('./services/mqttService');
 const machineHealthRoutes = require('./routes/machineHealthRoutes');
@@ -16,8 +18,6 @@ const safetyRoutes = require('./routes/safety');
 const alertRoutes = require('./routes/alerts');
 const platformSettingsRoutes = require('./routes/platformSettings');
 const { connectDatabase } = require('./config/database');
-
-dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const httpServer = http.createServer(app);
