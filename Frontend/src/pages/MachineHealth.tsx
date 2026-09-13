@@ -233,10 +233,13 @@ export function MachineHealth() {
         getHealthHistory(mId, { range, limit: 100 }).catch(() => []),
       ])
 
+      const resolvedHistory = hist.slice().reverse()
+      const fallbackHealth = h ?? resolvedHistory[resolvedHistory.length - 1] ?? null
+
       setSelectedMachine(m)
-      setLatestHealth(h)
+      setLatestHealth(fallbackHealth)
       // Reverse history so it is chronological (oldest to newest)
-      setHistory(hist.slice().reverse())
+      setHistory(resolvedHistory)
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : 'Failed to load machine detail')
     } finally {
@@ -752,7 +755,14 @@ export function MachineHealth() {
     typeof latestHealth?.temperature === 'number' && !Number.isNaN(latestHealth.temperature)
       ? latestHealth.temperature
       : 48
-  const curVal = typeof latestHealth?.current === 'number' && !Number.isNaN(latestHealth.current) ? latestHealth.current : 4.2
+
+  const lastHistoryCurrent = history.length > 0 && typeof history[history.length - 1]?.current === 'number' && !Number.isNaN(history[history.length - 1].current)
+    ? history[history.length - 1].current
+    : null
+  const curVal = typeof latestHealth?.current === 'number' && !Number.isNaN(latestHealth.current)
+    ? latestHealth.current
+    : lastHistoryCurrent
+
   const anomalyScore = Number.isFinite(currentHealthScore)
     ? Number((1 - currentHealthScore / 100).toFixed(2))
     : 0.15

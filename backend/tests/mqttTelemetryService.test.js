@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 
 const Machine = require('../models/machine');
 const TelemetryRecord = require('../models/TelemetryRecord');
-const { validateTelemetryPayload, processTelemetryPayload, computeCentredMagnitude, computeRms, computePeakAcceleration, computeSpectrumBins } = require('../services/mqttService');
+const { validateTelemetryPayload, validateSafetyAlertPayload, processTelemetryPayload, computeCentredMagnitude, computeRms, computePeakAcceleration, computeSpectrumBins } = require('../services/mqttService');
 
 before(async () => {
   await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/let-machines-speak');
@@ -19,6 +19,33 @@ test('validateTelemetryPayload accepts real MQTT packet structure', () => {
     device_id: 'node01',
     timestamp: 1789238707326,
     sample_rate_hz: 500,
+    accel: {
+      x: [0.1, 0.2, -0.1],
+      y: [0.2, 0.1, 0.0],
+      z: [-0.1, 0.0, 0.2],
+    },
+  };
+
+  assert.doesNotThrow(() => validateTelemetryPayload(payload));
+});
+
+test('validateSafetyAlertPayload accepts the new cv pipeline alert packet', () => {
+  const payload = {
+    timestamp: 1724539200,
+    violations: ['Missing: Hardhat', 'Fall-Detected'],
+    image_base64: Buffer.from('fake-jpeg-bytes', 'utf8').toString('base64'),
+  };
+
+  assert.doesNotThrow(() => validateSafetyAlertPayload(payload));
+});
+
+test('validateTelemetryPayload accepts optional temperature and current fields from live sensor packets', () => {
+  const payload = {
+    device_id: 'node01',
+    timestamp: Date.now(),
+    sample_rate_hz: 500,
+    temperature: 48.1,
+    current: 4.2,
     accel: {
       x: [0.1, 0.2, -0.1],
       y: [0.2, 0.1, 0.0],

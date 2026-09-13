@@ -24,6 +24,14 @@ const telemetryRecordSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    temperature: {
+      type: Number,
+      default: null,
+    },
+    current: {
+      type: Number,
+      default: null,
+    },
     accel: {
       x: { type: [Number], default: [] },
       y: { type: [Number], default: [] },

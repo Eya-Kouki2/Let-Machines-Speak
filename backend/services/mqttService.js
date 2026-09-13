@@ -8,6 +8,7 @@ const { emit } = require('./socketService');
 
 const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://test.mosquitto.org:1883';
 const telemetryTopic = process.env.MQTT_TELEMETRY_TOPIC || 'devices/+/telemetry';
+const safetyAlertsTopic = process.env.MQTT_SAFETY_ALERT_TOPIC || 'safety/alerts';
 const offlineTimeoutMs = Number(process.env.MQTT_OFFLINE_TIMEOUT_MS || 10000);
 
 let client = null;
@@ -40,6 +41,16 @@ function validateTelemetryPayload(payload) {
     throw new Error('sample_rate_hz must be a positive number');
   }
 
+  const tempCandidate = payload.temp_c ?? payload.temperature;
+  if (tempCandidate !== undefined && tempCandidate !== null && !Number.isFinite(Number(tempCandidate))) {
+    throw new Error('temperature must be numeric when present');
+  }
+
+  const currentCandidate = payload.current_a ?? payload.current;
+  if (currentCandidate !== undefined && currentCandidate !== null && !Number.isFinite(Number(currentCandidate))) {
+    throw new Error('current must be numeric when present');
+  }
+
   const accel = payload.accel;
   if (!accel || typeof accel !== 'object') {
     throw new Error('accel object is required');
@@ -58,6 +69,33 @@ function validateTelemetryPayload(payload) {
   const lengths = ['x', 'y', 'z'].map((axis) => accel[axis].length);
   if (new Set(lengths).size > 1) {
     throw new Error('accel axis arrays must have compatible lengths');
+  }
+}
+
+function validateSafetyAlertPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Safety alert payload must be an object');
+  }
+
+  if (!Number.isFinite(Number(payload.timestamp))) {
+    throw new Error('timestamp must be a Unix timestamp value');
+  }
+
+  if (!Array.isArray(payload.violations) || payload.violations.length === 0 || payload.violations.some((v) => typeof v !== 'string' || v.trim() === '')) {
+    throw new Error('violations must be a non-empty string array');
+  }
+
+  if (typeof payload.image_base64 !== 'string' || payload.image_base64.trim() === '') {
+    throw new Error('image_base64 must be a non-empty string');
+  }
+
+  try {
+    const buffer = Buffer.from(payload.image_base64, 'base64');
+    if (buffer.length === 0) {
+      throw new Error('image_base64 decoded data is empty');
+    }
+  } catch (error) {
+    throw new Error(`image_base64 must be valid base64: ${error.message}`);
   }
 }
 
@@ -289,9 +327,27 @@ async function processTelemetryPayload(rawPayload, topic = null) {
 
   const timestampMs = Number(rawPayload.timestamp);
   const sampleRateHz = Number(rawPayload.sample_rate_hz);
+  const temperature = rawPayload.temp_c ?? rawPayload.temperature ?? null;
+  const current = rawPayload.current_a ?? rawPayload.current ?? null;
+  const numericTemperature = temperature === null || temperature === undefined ? null : Number(temperature);
+  const numericCurrent = current === null || current === undefined ? null : Number(current);
   const x = rawPayload.accel.x.map((value) => Number(value));
   const y = rawPayload.accel.y.map((value) => Number(value));
   const z = rawPayload.accel.z.map((value) => Number(value));
+
+  let vibrationRms = null;
+  let peakAcceleration = null;
+  if (rawPayload.stats && typeof rawPayload.stats === 'object') {
+    const statsAxes = ['x', 'y', 'z'];
+    const axisRms = statsAxes.map((axis) => Number(rawPayload.stats?.[axis]?.rms)).filter(Number.isFinite);
+    const axisPeak = statsAxes.map((axis) => Number(rawPayload.stats?.[axis]?.peak)).filter(Number.isFinite);
+    if (axisRms.length >= 3) {
+      vibrationRms = safeMean(axisRms);
+    }
+    if (axisPeak.length >= 3) {
+      peakAcceleration = Math.max(...axisPeak);
+    }
+  }
 
   let machine = await Machine.findOne({ deviceId }).lean();
   if (!machine) {
@@ -299,8 +355,12 @@ async function processTelemetryPayload(rawPayload, topic = null) {
   }
 
   const magnitudeSignal = computeCentredMagnitude(x, y, z);
-  const vibrationRms = computeRms(magnitudeSignal);
-  const peakAcceleration = computePeakAcceleration(magnitudeSignal);
+  if (!Number.isFinite(vibrationRms)) {
+    vibrationRms = computeRms(magnitudeSignal);
+  }
+  if (!Number.isFinite(peakAcceleration)) {
+    peakAcceleration = computePeakAcceleration(magnitudeSignal);
+  }
   const fftSpectrum = computeSpectrumBins(magnitudeSignal, sampleRateHz);
   const fftBands = fftSpectrum.map((bin) => Number(bin.amplitude.toFixed(12)));
 
@@ -313,6 +373,8 @@ async function processTelemetryPayload(rawPayload, topic = null) {
     deviceId,
     timestamp: telemetryTimestamp,
     sampleRateHz,
+    temperature: numericTemperature,
+    current: numericCurrent,
     accel: { x, y, z },
     magnitude: magnitudeSignal,
     vibrationRms,
@@ -330,8 +392,8 @@ async function processTelemetryPayload(rawPayload, topic = null) {
         deviceId,
         timestamp: telemetryTimestamp,
         sampleRateHz,
-        temperature: null,
-        current: null,
+        temperature: numericTemperature,
+        current: numericCurrent,
         vibrationRms,
         peakAcceleration,
         rms: vibrationRms,
@@ -384,8 +446,8 @@ async function processTelemetryPayload(rawPayload, topic = null) {
       deviceId,
       timestamp: telemetryTimestamp.toISOString(),
       sampleRateHz,
-      temperature: null,
-      current: null,
+      temperature: numericTemperature,
+      current: numericCurrent,
       rms: vibrationRms,
       peak: peakAcceleration,
       fftBands,
@@ -406,6 +468,57 @@ async function processTelemetryPayload(rawPayload, topic = null) {
   return { machine, telemetryRecord, healthRecord, vibrationRms, peakAcceleration, fftSpectrum };
 }
 
+function normaliseSafetyViolationToEvent(violations) {
+  const normalized = Array.isArray(violations) ? violations.map((v) => String(v).trim().toLowerCase()) : [];
+
+  if (normalized.some((v) => v.includes('fall'))) {
+    return 'fall_detected';
+  }
+
+  if (normalized.some((v) => v.includes('hardhat') || v.includes('helmet'))) {
+    return 'no_helmet';
+  }
+
+  if (normalized.some((v) => v.includes('zone') || v.includes('restricted'))) {
+    return 'restricted_zone_entry';
+  }
+
+  return 'unsafe_distance';
+}
+
+function createSafetyEventFromPayload(payload) {
+  const timestampSeconds = Number(payload.timestamp);
+  const date = new Date(timestampSeconds * 1000);
+  const event = normaliseSafetyViolationToEvent(payload.violations);
+  const eventId = `safety-${date.getTime()}-${Math.round(Math.random() * 1e9)}`;
+  const imageDataUrl = `data:image/jpeg;base64,${payload.image_base64}`;
+
+  return {
+    event_id: eventId,
+    timestamp: date.toISOString(),
+    node_id: 'safety-cv-node',
+    zone: 'Zone 1',
+    event,
+    person_track_id: 1,
+    status: 'open',
+    violations: payload.violations,
+    snapshot_url: imageDataUrl,
+    confidence: 1,
+  };
+}
+
+function processSafetyAlertPayload(payload) {
+  validateSafetyAlertPayload(payload);
+  const safetyEvent = createSafetyEventFromPayload(payload);
+
+  emit('safety:alert', { event: safetyEvent });
+  emit('safety:event', { event: safetyEvent });
+  emit('safety:updated', { event: safetyEvent });
+  emit('dashboard:updated');
+
+  return safetyEvent;
+}
+
 function getConnectionState() {
   return connectionState;
 }
@@ -424,12 +537,22 @@ function connectMqtt() {
     connectionState = 'CONNECTED';
     console.log('[mqtt] MQTT connected');
     console.log(`[mqtt] broker=${brokerUrl}`);
+
     client.subscribe(telemetryTopic, (err) => {
       if (err) {
         console.error('[mqtt] subscribe failed', err.message);
         connectionState = 'ERROR';
       } else {
         console.log(`[mqtt] Subscribed to ${telemetryTopic}`);
+      }
+    });
+
+    client.subscribe(safetyAlertsTopic, (err) => {
+      if (err) {
+        console.error('[mqtt] safety subscribe failed', err.message);
+        connectionState = 'ERROR';
+      } else {
+        console.log(`[mqtt] Subscribed to ${safetyAlertsTopic}`);
       }
     });
   });
@@ -454,13 +577,20 @@ function connectMqtt() {
       return;
     }
 
-    const topicDeviceId = extractTopicDeviceId(topic);
-    if (!topicDeviceId) {
-      return;
-    }
-
     try {
       const raw = JSON.parse(message.toString());
+
+      if (topic === safetyAlertsTopic) {
+        const safetyEvent = processSafetyAlertPayload(raw);
+        console.log(`[mqtt] processed safety alert event=${safetyEvent.event} violations=${safetyEvent.violations.join('|')}`);
+        return;
+      }
+
+      const topicDeviceId = extractTopicDeviceId(topic);
+      if (!topicDeviceId) {
+        return;
+      }
+
       if (raw?.device_id && raw.device_id !== topicDeviceId) {
         console.warn(`[mqtt] Packet rejected: topic ${topic} device_id ${raw.device_id} mismatch`);
         return;
@@ -471,7 +601,7 @@ function connectMqtt() {
         console.log(`[mqtt] processed ${result.machine.deviceId} RMS=${result.vibrationRms.toFixed(4)}`);
       }
     } catch (error) {
-      console.warn(`[mqtt] invalid telemetry packet ignored: ${error.message}`);
+      console.warn(`[mqtt] invalid packet ignored: ${error.message}`);
     }
   });
 
@@ -482,7 +612,9 @@ module.exports = {
   connectMqtt,
   getConnectionState,
   processTelemetryPayload,
+  processSafetyAlertPayload,
   validateTelemetryPayload: validateTelemetryPayload,
+  validateSafetyAlertPayload,
   computeCentredMagnitude,
   computeRms,
   computePeakAcceleration,

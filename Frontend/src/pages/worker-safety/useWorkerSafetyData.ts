@@ -13,6 +13,8 @@ const MOCK_EVENTS: SafetyEventRow[] = [
     event: "no_helmet",
     person_track_id: 3,
     status: "open",
+    violations: ["Missing: Hardhat"],
+    snapshot_url: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD//gA="
   },
   {
     event_id: "zone2-20260829-00027",
@@ -22,6 +24,8 @@ const MOCK_EVENTS: SafetyEventRow[] = [
     event: "restricted_zone_entry",
     person_track_id: 7,
     status: "open",
+    violations: ["Restricted Zone"],
+    snapshot_url: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD//gA="
   },
   {
     event_id: "zone1-20260829-00026",
@@ -31,6 +35,7 @@ const MOCK_EVENTS: SafetyEventRow[] = [
     event: "helmet_ok",
     person_track_id: 5,
     status: "resolved",
+    violations: [],
   },
 ];
 
@@ -41,6 +46,8 @@ interface BackendSafetyEvent {
   event: string;
   confidence: number;
   status: "open" | "acknowledged" | "resolved";
+  violations?: string[];
+  snapshot_url?: string;
 }
 
 interface UseWorkerSafetyDataResult {
@@ -58,6 +65,8 @@ function mapBackendEvent(ev: BackendSafetyEvent): SafetyEventRow {
     event: ev.event,
     person_track_id: 1,
     status: ev.status === "open" ? "open" : "resolved",
+    violations: Array.isArray(ev.violations) ? ev.violations : [],
+    snapshot_url: ev.snapshot_url,
   };
 }
 
@@ -87,16 +96,26 @@ export function useWorkerSafetyData(): UseWorkerSafetyDataResult {
 
   // Real-time socket sync
   useEffect(() => {
-    const handleSafetyEvent = () => {
-      void fetchEvents();
+    const handleSafetyEvent = (payload?: { event?: SafetyEventRow }) => {
+      const next = payload?.event;
+      if (next) {
+        setEvents((current) => [
+          { ...next, status: next.status ?? "open" },
+          ...current,
+        ]);
+      } else {
+        void fetchEvents();
+      }
     };
 
     socket.on("safety:event", handleSafetyEvent);
     socket.on("safety:updated", handleSafetyEvent);
+    socket.on("safety:alert", handleSafetyEvent);
 
     return () => {
       socket.off("safety:event", handleSafetyEvent);
       socket.off("safety:updated", handleSafetyEvent);
+      socket.off("safety:alert", handleSafetyEvent);
     };
   }, [socket, fetchEvents]);
 

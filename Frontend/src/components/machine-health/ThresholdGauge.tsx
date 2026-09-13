@@ -18,33 +18,32 @@ export function ThresholdGauge({
   maxScale,
   precision = 2,
 }: ThresholdGaugeProps) {
-  const safeVal = typeof value === 'number' && !isNaN(value) ? value : 0
+  const safeVal = typeof value === 'number' && Number.isFinite(value) ? value : null
   const safeWarn = typeof warningThreshold === 'number' && !isNaN(warningThreshold) ? warningThreshold : 10
   const safeCrit = typeof criticalThreshold === 'number' && !isNaN(criticalThreshold) && criticalThreshold > safeWarn ? criticalThreshold : Math.max(safeWarn * 1.5, safeWarn + 1)
 
-  // Determine metric status based on the machine's thresholds
   let status: 'NORMAL' | 'WARNING' | 'CRITICAL' = 'NORMAL'
-  let statusColor = '#10b981' // emerald
+  let statusColor = '#10b981'
 
-  if (safeVal >= safeCrit) {
-    status = 'CRITICAL'
-    statusColor = '#ef4444' // red
-  } else if (safeVal >= safeWarn) {
-    status = 'WARNING'
-    statusColor = '#f97316' // orange
+  if (safeVal !== null) {
+    if (safeVal >= safeCrit) {
+      status = 'CRITICAL'
+      statusColor = '#ef4444'
+    } else if (safeVal >= safeWarn) {
+      status = 'WARNING'
+      statusColor = '#f97316'
+    }
   }
 
-  // Calculate full scale: at least 1.35x critical or maxScale or 1.15x value
-  const totalMax = maxScale ?? Math.max(safeCrit * 1.35, safeVal * 1.15, 1)
-  const clampedValue = Math.min(Math.max(safeVal, 0), totalMax)
+  const totalMax = maxScale ?? Math.max(safeCrit * 1.35, safeVal === null ? 1 : safeVal * 1.15, 1)
+  const clampedValue = safeVal === null ? 0 : Math.min(Math.max(safeVal, 0), totalMax)
   const markerPercent = Math.min(Math.max((clampedValue / totalMax) * 100, 0), 100)
 
-  // Segment widths in %
   const normalWidth = (safeWarn / totalMax) * 100
   const warningWidth = ((safeCrit - safeWarn) / totalMax) * 100
   const criticalWidth = Math.max(0, 100 - normalWidth - warningWidth)
 
-  const formattedValue = safeVal.toFixed(precision)
+  const formattedValue = safeVal === null ? 'N/A' : safeVal.toFixed(precision)
 
   return (
     <div className="mh-threshold-card">
@@ -65,11 +64,10 @@ export function ThresholdGauge({
       <div className="mh-threshold-val-row">
         <strong className="mh-threshold-value">
           {formattedValue}
-          <small className="mh-threshold-unit"> {unit}</small>
+          {safeVal !== null && <small className="mh-threshold-unit"> {unit}</small>}
         </strong>
       </div>
 
-      {/* Horizontal threshold bar */}
       <div className="mh-gauge-track-wrap">
         <div className="mh-gauge-track" title={`Value: ${formattedValue} ${unit} | Warning: ${warningThreshold} | Critical: ${criticalThreshold}`}>
           <div
@@ -88,7 +86,6 @@ export function ThresholdGauge({
             title={`Critical: > ${criticalThreshold}${unit}`}
           />
 
-          {/* Current value pin marker */}
           <div
             className="mh-gauge-marker"
             style={{
@@ -100,7 +97,6 @@ export function ThresholdGauge({
           </div>
         </div>
 
-        {/* Labels below the track */}
         <div className="mh-gauge-threshold-labels">
           <span className="mh-gauge-lbl-norm">0</span>
           <span className="mh-gauge-lbl-warn" style={{ left: `${normalWidth}%` }}>
