@@ -6,6 +6,7 @@ export interface SafetyEvent {
   zone: string;
   event: string; // "no_helmet" | "restricted_zone_entry" | futur type
   person_track_id: number;
+  confidence?: number;
   snapshot_url?: string; // image JPEG base64 data url from CV pipeline
   violations?: string[];
 }

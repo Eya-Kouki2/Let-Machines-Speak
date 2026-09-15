@@ -59,81 +59,41 @@ export interface HealthTrendPoint {
 }
 
 // ---------------------------------------------------------------------------
-// Fallback / mock data (used when backend is unreachable or returns empty)
-// ---------------------------------------------------------------------------
-const MOCK_SUMMARY: DashboardSummary = {
-  machines: { total: 6, healthy: 4, warning: 1, critical: 1, offline: 0, averageHealthScore: 78 },
-  safety: { zones: 4, safeZones: 3, activeViolations: 1, eventsToday: 3 },
-  alerts: { active: 3, critical: 1, today: 3 },
-}
-
-const MOCK_ACTIVITY: ActivityItem[] = [
-  {
-    type: 'MACHINE_ALERT',
-    severity: 'CRITICAL',
-    title: 'High vibration detected',
-    source: 'Industrial Motor 01',
-    timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-  },
-  {
-    type: 'SAFETY_EVENT',
-    severity: 'WARNING',
-    title: 'No helmet detected',
-    source: 'Zone 1',
-    timestamp: new Date(Date.now() - 7 * 60 * 1000).toISOString(),
-  },
-  {
-    type: 'SAFETY_EVENT',
-    severity: 'WARNING',
-    title: 'Restricted zone entry',
-    source: 'Zone 2',
-    timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-  },
-  {
-    type: 'MACHINE_ALERT',
-    severity: 'INFO',
-    title: 'Health score recovered',
-    source: 'Machine 03',
-    timestamp: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-  },
-]
-
-function generateMockTrend(): HealthTrendPoint[] {
-  const now = Date.now()
-  return Array.from({ length: 12 }, (_, i) => ({
-    timestamp: new Date(now - (11 - i) * 2 * 60 * 60 * 1000).toISOString(),
-    avgScore: 60 + Math.round(Math.sin(i * 0.5) * 15 + Math.random() * 8),
-    count: 3,
-  }))
-}
-
-// ---------------------------------------------------------------------------
-// API calls
+// Real API calls
 // ---------------------------------------------------------------------------
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   try {
-    return await apiRequest<DashboardSummary>('/api/dashboard/summary')
-  } catch {
-    return MOCK_SUMMARY
+    const res = await apiRequest<DashboardSummary>('/api/dashboard/summary')
+    return res
+  } catch (err) {
+    console.error('Failed to load dashboard summary:', err)
+    return {
+      machines: { total: 0, healthy: 0, warning: 0, critical: 0, offline: 0, averageHealthScore: null, attentionMachines: [] },
+      safety: { zones: 0, safeZones: 0, activeViolations: 0, eventsToday: 0, byType: {} },
+      alerts: { active: 0, critical: 0, today: 0 },
+    }
   }
 }
 
 export async function getRecentActivity(limit = 8): Promise<ActivityItem[]> {
   try {
     const items = await apiRequest<ActivityItem[]>(`/api/dashboard/recent-activity?limit=${limit}`)
-    if (Array.isArray(items) && items.length > 0) return items
-    return MOCK_ACTIVITY
-  } catch {
-    return MOCK_ACTIVITY
+    if (Array.isArray(items)) return items
+    return []
+  } catch (err) {
+    console.error('Failed to load recent activity:', err)
+    return []
   }
 }
 
 export async function getHealthTrend(): Promise<HealthTrendPoint[]> {
   try {
     const data = await apiRequest<HealthTrendPoint[]>('/api/dashboard/health-trend')
-    if (Array.isArray(data) && data.length >= 2) return data
-    return generateMockTrend()
-  } catch {
-    return generateMockTrend()
+    if (Array.isArray(data)) return data
+    return []
+  } catch (err) {
+    console.error('Failed to load health trend:', err)
+    return []
   }
 }
+

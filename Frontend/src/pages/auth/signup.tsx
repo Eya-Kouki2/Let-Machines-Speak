@@ -7,24 +7,21 @@ interface SignUpProps {
   onBackToLogin?: () => void
 }
 
-type AccountType = 'USER' | 'ADMIN_REQUEST'
-
 export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    accountType: 'USER' as AccountType,
-    age: '',
-    yearsOfExperience: '',
     workZone: '',
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -44,10 +41,8 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        accountType: formData.accountType,
-        age: formData.age ? Number(formData.age) : undefined,
-        yearsOfExperience: formData.yearsOfExperience ? Number(formData.yearsOfExperience) : undefined,
-        workZone: formData.workZone,
+        accountType: 'USER',
+        workZone: formData.workZone || undefined,
       })
 
       setMessage(response.message || 'Account created successfully.')
@@ -68,23 +63,22 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
       <section className="auth-brand-panel">
         <LabesLogo className="auth-logo" />
         <h1>Create secure LABES access</h1>
-        <p>Standard users are approved immediately. Administrator requests are reviewed by an existing LABES admin.</p>
-        <div className="auth-signal-card auth-signal-card-orange">
+        <p>AI-powered industrial monitoring for machine health, worker safety, real-time alerts, and operational visibility.</p>
+        <div className="auth-signal-card">
           <span className="auth-signal-dot" />
-          Admin requests require approval
+          Unified monitoring platform active
         </div>
       </section>
 
       <section className="auth-form-card">
         <div className="auth-form-heading">
-          <h2>Create your LABES account</h2>
-          <p>Use your work details to request access.</p>
+          <h2>Create Account</h2>
         </div>
 
         {error && <div className="auth-alert auth-alert-error">{error}</div>}
-        {message && <div className={`auth-alert ${formData.accountType === 'ADMIN_REQUEST' ? 'auth-alert-pending' : 'auth-alert-success'}`}>{message}</div>}
+        {message && <div className="auth-alert auth-alert-success">{message}</div>}
 
-        <form onSubmit={handleSubmit} className="auth-form auth-form-grid">
+        <form onSubmit={handleSubmit} className="auth-form">
           <label>
             <span>Full Name</span>
             <input name="name" value={formData.name} onChange={handleChange} placeholder="Full name" required />
@@ -93,34 +87,60 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
             <span>Email</span>
             <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" required />
           </label>
+          <div className="auth-form-row">
+            <label>
+              <span>Password</span>
+              <div className="auth-password-row">
+                <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} placeholder="Create password" required minLength={8} />
+                <button
+                  type="button"
+                  className="auth-password-toggle-eye"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </label>
+            <label>
+              <span>Confirm Password</span>
+              <div className="auth-password-row">
+                <input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Confirm password" required minLength={8} />
+                <button
+                  type="button"
+                  className="auth-password-toggle-eye"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </label>
+          </div>
           <label>
-            <span>Password</span>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Create password" required minLength={8} />
+            <span>Industry Name</span>
+            <input name="workZone" value={formData.workZone} onChange={handleChange} placeholder="e.g. Manufacturing, Energy, Robotics" />
           </label>
-          <label>
-            <span>Confirm Password</span>
-            <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Confirm password" required minLength={8} />
-          </label>
-          <label>
-            <span>Account Type</span>
-            <select name="accountType" value={formData.accountType} onChange={handleChange}>
-              <option value="USER">Standard User</option>
-              <option value="ADMIN_REQUEST">Admin Request</option>
-            </select>
-          </label>
-          <label>
-            <span>Age</span>
-            <input type="number" name="age" min="18" value={formData.age} onChange={handleChange} placeholder="+18" />
-          </label>
-          <label>
-            <span>Years of Experience</span>
-            <input type="number" name="yearsOfExperience" min="0" value={formData.yearsOfExperience} onChange={handleChange} placeholder="3" />
-          </label>
-          <label>
-            <span>Work Zone</span>
-            <input name="workZone" value={formData.workZone} onChange={handleChange} placeholder="e.g. Zone A" />
-          </label>
-          {formData.accountType === 'ADMIN_REQUEST' && <p className="auth-help">Administrator accounts require approval from an existing LABES administrator.</p>}
           <button type="submit" className="btn-go-dashboard" disabled={loading}>{loading ? 'Creating...' : 'Create Account'}</button>
         </form>
 

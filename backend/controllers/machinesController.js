@@ -68,7 +68,7 @@ exports.updateMachine = async (req, res, next) => {
     const machine = await Machine.findOneAndUpdate(
       { machineId: req.params.id },
       req.body,
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
     if (!machine) return res.status(404).json({ success: false, message: 'Machine not found' });
     emit('machine:updated', { machine });

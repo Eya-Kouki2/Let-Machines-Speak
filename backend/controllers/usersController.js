@@ -326,7 +326,7 @@ exports.updateUser = async (req, res, next) => {
         update.approvedAt = new Date();
       }
     }
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    const user = await User.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true });
     return res.json({ success: true, data: safeUser(user) });
   } catch (error) {
     if (error.code === 11000) return res.status(409).json({ success: false, message: 'Email already exists' });

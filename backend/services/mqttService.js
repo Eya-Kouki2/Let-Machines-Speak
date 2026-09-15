@@ -5,6 +5,7 @@ const TelemetryRecord = require('../models/TelemetryRecord');
 const HealthRecord = require('../models/HealthRecord');
 const Alert = require('../models/alert');
 const { emit } = require('./socketService');
+const { persistSafetyEvent, normaliseSafetyViolationToEvent } = require('./safetyService');
 
 const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://test.mosquitto.org:1883';
 const telemetryTopic = process.env.MQTT_TELEMETRY_TOPIC || 'devices/+/telemetry';
@@ -193,7 +194,7 @@ async function getNextMachineId() {
     const counter = await MachineCounter.findOneAndUpdate(
       { _id: 'machines' },
       { $inc: { seq: 1 } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     );
 
     const candidate = `MCH-${String(counter.seq).padStart(3, '0')}`;
@@ -247,7 +248,7 @@ async function ensureMachineForDevice(deviceId) {
         },
         {
           upsert: true,
-          new: true,
+          returnDocument: 'after',
           runValidators: true,
           setDefaultsOnInsert: true,
         },
@@ -356,10 +357,14 @@ async function processTelemetryPayload(rawPayload, topic = null) {
 
   const magnitudeSignal = computeCentredMagnitude(x, y, z);
   if (!Number.isFinite(vibrationRms)) {
-    vibrationRms = computeRms(magnitudeSignal);
+    vibrationRms = Number(computeRms(magnitudeSignal).toFixed(4));
+  } else {
+    vibrationRms = Number(vibrationRms.toFixed(4));
   }
   if (!Number.isFinite(peakAcceleration)) {
-    peakAcceleration = computePeakAcceleration(magnitudeSignal);
+    peakAcceleration = Number(computePeakAcceleration(magnitudeSignal).toFixed(4));
+  } else {
+    peakAcceleration = Number(peakAcceleration.toFixed(4));
   }
   const fftSpectrum = computeSpectrumBins(magnitudeSignal, sampleRateHz);
   const fftBands = fftSpectrum.map((bin) => Number(bin.amplitude.toFixed(12)));
@@ -408,7 +413,7 @@ async function processTelemetryPayload(rawPayload, topic = null) {
       },
     },
     {
-      new: true,
+      returnDocument: 'after',
       upsert: true,
       runValidators: true,
     },
@@ -424,7 +429,7 @@ async function processTelemetryPayload(rawPayload, topic = null) {
         lastSeen: telemetryTimestamp,
       },
     },
-    { new: true },
+    { returnDocument: 'after' },
   );
 
   emit('machine:telemetry', {
@@ -468,55 +473,10 @@ async function processTelemetryPayload(rawPayload, topic = null) {
   return { machine, telemetryRecord, healthRecord, vibrationRms, peakAcceleration, fftSpectrum };
 }
 
-function normaliseSafetyViolationToEvent(violations) {
-  const normalized = Array.isArray(violations) ? violations.map((v) => String(v).trim().toLowerCase()) : [];
 
-  if (normalized.some((v) => v.includes('fall'))) {
-    return 'fall_detected';
-  }
-
-  if (normalized.some((v) => v.includes('hardhat') || v.includes('helmet'))) {
-    return 'no_helmet';
-  }
-
-  if (normalized.some((v) => v.includes('zone') || v.includes('restricted'))) {
-    return 'restricted_zone_entry';
-  }
-
-  return 'unsafe_distance';
-}
-
-function createSafetyEventFromPayload(payload) {
-  const timestampSeconds = Number(payload.timestamp);
-  const date = new Date(timestampSeconds * 1000);
-  const event = normaliseSafetyViolationToEvent(payload.violations);
-  const eventId = `safety-${date.getTime()}-${Math.round(Math.random() * 1e9)}`;
-  const imageDataUrl = `data:image/jpeg;base64,${payload.image_base64}`;
-
-  return {
-    event_id: eventId,
-    timestamp: date.toISOString(),
-    node_id: 'safety-cv-node',
-    zone: 'Zone 1',
-    event,
-    person_track_id: 1,
-    status: 'open',
-    violations: payload.violations,
-    snapshot_url: imageDataUrl,
-    confidence: 1,
-  };
-}
-
-function processSafetyAlertPayload(payload) {
+async function processSafetyAlertPayload(payload) {
   validateSafetyAlertPayload(payload);
-  const safetyEvent = createSafetyEventFromPayload(payload);
-
-  emit('safety:alert', { event: safetyEvent });
-  emit('safety:event', { event: safetyEvent });
-  emit('safety:updated', { event: safetyEvent });
-  emit('dashboard:updated');
-
-  return safetyEvent;
+  return await persistSafetyEvent(payload);
 }
 
 function getConnectionState() {
@@ -578,11 +538,14 @@ function connectMqtt() {
     }
 
     try {
-      const raw = JSON.parse(message.toString());
+      const sanitized = message.toString()
+        .replace(/:\s*nan\b/gi, ': null')
+        .replace(/:\s*-?inf\b/gi, ': null');
+      const raw = JSON.parse(sanitized);
 
       if (topic === safetyAlertsTopic) {
-        const safetyEvent = processSafetyAlertPayload(raw);
-        console.log(`[mqtt] processed safety alert event=${safetyEvent.event} violations=${safetyEvent.violations.join('|')}`);
+        const safetyEvent = await processSafetyAlertPayload(raw);
+        console.log(`[mqtt] processed safety alert event=${safetyEvent.event} violations=${(safetyEvent.violations || []).join('|')}`);
         return;
       }
 

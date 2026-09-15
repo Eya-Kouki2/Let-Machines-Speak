@@ -22,6 +22,9 @@ import type { User } from './types/admin'
 
 const HASH_TO_TAB: Record<string, string> = {
   home:      'Home',
+  features:  'Home',
+  contact:   'Home',
+  'contact-us': 'Home',
   dashboard: 'Dashboard',
   machines:  'Machine Health',
   'machine-health': 'Machine Health',

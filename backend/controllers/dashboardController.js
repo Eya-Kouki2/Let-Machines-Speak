@@ -76,11 +76,9 @@ async function getSummary(req, res, next) {
       }
     }
 
-    // Machine status distribution
-    const machineStatusMap = {};
-    for (const m of machines) {
-      machineStatusMap[m.machineId] = m.status; // ONLINE/WARNING/CRITICAL/OFFLINE
-    }
+    // Only count records for machines that currently exist in DB
+    const validMachineIds = new Set(machines.map((m) => m.machineId));
+    const validHealthRecords = healthRecords.filter((r) => validMachineIds.has(r._id));
 
     let healthy = 0;
     let warning = 0;
@@ -88,7 +86,7 @@ async function getSummary(req, res, next) {
     let totalScore = 0;
     let scoredCount = 0;
 
-    for (const rec of healthRecords) {
+    for (const rec of validHealthRecords) {
       if (rec.latestStatus === 'green') healthy++;
       else if (rec.latestStatus === 'yellow') warning++;
       else if (rec.latestStatus === 'red') critical++;
@@ -99,18 +97,17 @@ async function getSummary(req, res, next) {
       }
     }
 
-    // Machines with no health records yet are counted from machine statuses
-    const machinedWithRecords = new Set(healthRecords.map((r) => r._id));
+    // Machines with no health records yet default to machine.status
+    const recordedMachineIds = new Set(validHealthRecords.map((r) => r._id));
     for (const m of machines) {
-      if (!machinedWithRecords.has(m.machineId)) {
+      if (!recordedMachineIds.has(m.machineId)) {
         if (m.status === 'ONLINE') healthy++;
         else if (m.status === 'WARNING') warning++;
         else if (m.status === 'CRITICAL') critical++;
-        // OFFLINE → not counted in health tiers
       }
     }
 
-    const averageHealthScore = scoredCount > 0 ? Math.round(totalScore / scoredCount) : null;
+    const averageHealthScore = scoredCount > 0 ? Math.round(totalScore / scoredCount) : (machines.length > 0 ? 100 : null);
 
     // Attention machines: WARNING or CRITICAL or lowest health scores
     const attentionMachines = machines

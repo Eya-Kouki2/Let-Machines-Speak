@@ -134,7 +134,7 @@ function createMachineHealthService(dependencies = {}) {
       : await MachineModel.findOneAndUpdate(
           { machineId },
           { $set: machineData, $setOnInsert: { machineId } },
-          { new: true, upsert: true, runValidators: true }
+          { returnDocument: 'after', upsert: true, runValidators: true }
         );
 
     const record = useMemoryStore()

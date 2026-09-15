@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const SafetyEvent = require('../models/SafetyEvent');
 const { emit } = require('../services/socketService');
+const { persistSafetyEvent } = require('../services/safetyService');
 
 exports.listEvents = async (req, res, next) => {
   try {
@@ -21,9 +23,7 @@ exports.listEvents = async (req, res, next) => {
 
 exports.createEvent = async (req, res, next) => {
   try {
-    const event = await SafetyEvent.create(req.body);
-    emit('safety:event', { event });
-    emit('dashboard:updated');
+    const event = await persistSafetyEvent(req.body);
     return res.status(201).json({ success: true, data: event });
   } catch (error) {
     return next(error);
@@ -32,12 +32,29 @@ exports.createEvent = async (req, res, next) => {
 
 exports.updateEvent = async (req, res, next) => {
   try {
-    const event = await SafetyEvent.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-    if (!event) return res.status(404).json({ success: false, message: 'Safety event not found' });
+    const { id } = req.params;
+    let event = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      event = await SafetyEvent.findByIdAndUpdate(
+        id,
+        { $set: req.body },
+        { returnDocument: 'after', runValidators: true }
+      );
+    }
+
+    if (!event) {
+      event = await SafetyEvent.findOneAndUpdate(
+        { event_id: id },
+        { $set: req.body },
+        { returnDocument: 'after', runValidators: true }
+      );
+    }
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Safety event not found' });
+    }
+
     emit('safety:updated', { event });
     emit('dashboard:updated');
     return res.json({ success: true, data: event });

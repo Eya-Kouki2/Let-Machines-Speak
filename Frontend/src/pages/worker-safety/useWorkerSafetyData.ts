@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import type { SafetyEventRow } from "./types";
 import { apiRequest } from "../../services/apiClient";
+import { getMediaUrl } from "../../services/profileApi";
 import { useSocket } from "../../hooks/useSocket";
 
 // Fallback demo data
@@ -40,11 +41,14 @@ const MOCK_EVENTS: SafetyEventRow[] = [
 ];
 
 interface BackendSafetyEvent {
-  _id: string;
+  _id?: string;
+  event_id?: string;
   timestamp: string;
+  node_id?: string;
   zone: string;
   event: string;
-  confidence: number;
+  person_track_id?: number;
+  confidence?: number;
   status: "open" | "acknowledged" | "resolved";
   violations?: string[];
   snapshot_url?: string;
@@ -54,19 +58,22 @@ interface UseWorkerSafetyDataResult {
   events: SafetyEventRow[];
   latestAlert: SafetyEventRow | null;
   isLoading: boolean;
+  updateEventStatus: (eventId: string, newStatus: "open" | "resolved") => void;
 }
 
 function mapBackendEvent(ev: BackendSafetyEvent): SafetyEventRow {
+  const eventId = ev.event_id || ev._id || `safety-${Date.now()}`;
   return {
-    event_id: ev._id,
+    event_id: eventId,
     timestamp: ev.timestamp,
-    node_id: `safety-${ev.zone.toLowerCase().replace(/\s+/g, '-')}`,
+    node_id: ev.node_id || `safety-${ev.zone.toLowerCase().replace(/\s+/g, '-')}`,
     zone: ev.zone,
     event: ev.event,
-    person_track_id: 1,
+    person_track_id: ev.person_track_id ?? 1,
+    confidence: typeof ev.confidence === 'number' ? ev.confidence : 0.98,
     status: ev.status === "open" ? "open" : "resolved",
     violations: Array.isArray(ev.violations) ? ev.violations : [],
-    snapshot_url: ev.snapshot_url,
+    snapshot_url: ev.snapshot_url ? getMediaUrl(ev.snapshot_url) : undefined,
   };
 }
 
@@ -94,14 +101,14 @@ export function useWorkerSafetyData(): UseWorkerSafetyDataResult {
     void fetchEvents();
   }, [fetchEvents]);
 
-  // Real-time socket sync
+  // Real-time socket sync with backend
   useEffect(() => {
     const handleSafetyEvent = (payload?: { event?: SafetyEventRow }) => {
       const next = payload?.event;
       if (next) {
         setEvents((current) => [
           { ...next, status: next.status ?? "open" },
-          ...current,
+          ...current.filter((e) => e.event_id !== next.event_id),
         ]);
       } else {
         void fetchEvents();
@@ -119,7 +126,24 @@ export function useWorkerSafetyData(): UseWorkerSafetyDataResult {
     };
   }, [socket, fetchEvents]);
 
+  const updateEventStatus = useCallback(async (eventId: string, newStatus: "open" | "resolved") => {
+    // Optimistic UI update
+    setEvents((current) =>
+      current.map((e) => (e.event_id === eventId ? { ...e, status: newStatus } : e))
+    );
+
+    // Persist to backend database
+    try {
+      await apiRequest(`/api/safety/events/${eventId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch {
+      // Retain optimistic update or refresh if needed
+    }
+  }, []);
+
   const latestAlert = events.find((e) => e.status === "open") ?? null;
 
-  return { events, latestAlert, isLoading };
+  return { events, latestAlert, isLoading, updateEventStatus };
 }

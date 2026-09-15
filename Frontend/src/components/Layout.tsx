@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Navbar, type NavMode } from './Navbar'
+import { Footer } from './Footer'
 import type { User } from '../types/admin'
 
 interface LayoutProps {
@@ -23,11 +24,7 @@ export function Layout({ children, defaultNavMode = 'top', activeTab, onTabChang
       <main className={`main-container main-${navMode}`}>
         {children}
       </main>
-      <footer className={`app-footer footer-${navMode}`}>
-        <div className="footer-content">
-          <p>© {new Date().getFullYear()} LABES. All rights reserved.</p>
-        </div>
-      </footer>
+      <Footer onTabChange={onTabChange} isLoggedIn={isLoggedIn} onLoginClick={onLoginClick} onSignUpClick={onSignUpClick} />
     </div>
   )
 }
