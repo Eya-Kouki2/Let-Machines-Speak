@@ -66,6 +66,9 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre('validate', function setNameParts() {
+  if (this.role) {
+    this.role = this.role.toUpperCase();
+  }
   if (!this.name && (this.firstName || this.lastName)) {
     this.name = [this.firstName, this.lastName].filter(Boolean).join(' ');
   }
@@ -75,10 +78,10 @@ userSchema.pre('validate', function setNameParts() {
     this.lastName = rest.join(' ');
   }
   if (!this.approvalStatus) {
-    this.approvalStatus = this.role === 'ADMIN' && this.isNew ? 'PENDING' : 'APPROVED';
+    this.approvalStatus = 'APPROVED';
   }
   if (this.isApproved === undefined || this.isApproved === null) {
-    this.isApproved = this.approvalStatus === 'APPROVED';
+    this.isApproved = true;
   }
   if (this.approvalStatus === 'APPROVED' && !this.approvedAt) {
     this.approvedAt = new Date();

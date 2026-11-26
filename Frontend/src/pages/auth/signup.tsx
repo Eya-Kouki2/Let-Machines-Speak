@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { signUp } from '../../services/authApi'
 import { LabesLogo } from '../../components/LabesLogo'
+import type { UserRole } from '../../types/admin'
 
 interface SignUpProps {
   onCreateAccount?: () => void
@@ -8,11 +9,19 @@ interface SignUpProps {
 }
 
 export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    password: string
+    confirmPassword: string
+    role: UserRole
+    workZone: string
+  }>({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
+    role: 'ADMIN',
     workZone: '',
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -21,7 +30,7 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -41,7 +50,8 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        accountType: 'USER',
+        role: formData.role,
+        accountType: formData.role,
         workZone: formData.workZone || undefined,
       })
 
@@ -137,10 +147,21 @@ export function SignUp({ onCreateAccount, onBackToLogin }: SignUpProps) {
               </div>
             </label>
           </div>
-          <label>
-            <span>Industry Name</span>
-            <input name="workZone" value={formData.workZone} onChange={handleChange} placeholder="e.g. Manufacturing, Energy, Robotics" />
-          </label>
+          <div className="auth-form-row">
+            <label>
+              <span>Role</span>
+              <select name="role" value={formData.role} onChange={handleChange} required>
+                <option value="ADMIN">Administrator (Full Access)</option>
+                <option value="OPERATOR">Operator</option>
+                <option value="VIEWER">Viewer</option>
+                <option value="USER">Standard User</option>
+              </select>
+            </label>
+            <label>
+              <span>Industry / Zone</span>
+              <input name="workZone" value={formData.workZone} onChange={handleChange} placeholder="e.g. Zone A, Manufacturing" />
+            </label>
+          </div>
           <button type="submit" className="btn-go-dashboard" disabled={loading}>{loading ? 'Creating...' : 'Create Account'}</button>
         </form>
 

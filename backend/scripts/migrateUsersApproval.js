@@ -9,24 +9,20 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 async function migrateUsersApproval() {
   await connectDatabase();
 
-  const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@labes.local';
-  const legacyUsers = await User.find({
-    $or: [
-      { isApproved: { $exists: false } },
-      { approvalStatus: { $exists: false } },
-    ],
-  });
+  const allUsers = await User.find({});
 
-  for (const user of legacyUsers) {
-    const shouldApprove = user.role !== 'ADMIN' || user.email === seedAdminEmail;
-    user.isApproved = shouldApprove;
-    user.approvalStatus = shouldApprove ? 'APPROVED' : 'PENDING';
-    user.approvedAt = shouldApprove ? (user.approvedAt || new Date()) : null;
+  for (const user of allUsers) {
+    if (user.role) user.role = user.role.toUpperCase();
+    user.isApproved = true;
+    user.approvalStatus = 'APPROVED';
+    user.active = true;
+    user.mustChangePassword = false;
+    user.approvedAt = user.approvedAt || new Date();
     await user.save();
-    console.log(`${user.email}: ${user.approvalStatus}`);
+    console.log(`${user.email}: ${user.role} (${user.approvalStatus})`);
   }
 
-  console.log(`Migrated ${legacyUsers.length} users`);
+  console.log(`Migrated and approved ${allUsers.length} users`);
 }
 
 migrateUsersApproval()

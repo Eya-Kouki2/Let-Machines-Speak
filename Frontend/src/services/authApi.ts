@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient'
-import type { User } from '../types/admin'
+import type { User, UserRole } from '../types/admin'
 
 export interface AuthResult {
   token: string
@@ -19,7 +19,8 @@ export interface SignUpPayload {
   lastName?: string
   email: string
   password: string
-  accountType: 'USER' | 'ADMIN_REQUEST'
+  role?: UserRole
+  accountType?: string
   age?: number
   yearsOfExperience?: number
   workZone?: string

@@ -1,18 +1,18 @@
-﻿const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { getJwtSecret } = require('../middleware/authMiddleware');
 const { validatePassword, generateTemporaryPassword } = require('../utils/passwordValidation');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 
 function normalizeRole(role) {
-  if (role === 'ADMIN_REQUEST' || role === 'Admin' || role === 'ADMIN') return 'ADMIN';
+  const r = String(role || '').toUpperCase();
+  if (r === 'ADMIN' || r === 'ADMIN_REQUEST') return 'ADMIN';
+  if (r === 'OPERATOR') return 'OPERATOR';
+  if (r === 'VIEWER') return 'VIEWER';
   return 'USER';
 }
 
-function approvalForRole(role) {
-  if (role === 'ADMIN') {
-    return { isApproved: false, approvalStatus: 'PENDING', approvedAt: null };
-  }
+function approvalForRole(_role) {
   return { isApproved: true, approvalStatus: 'APPROVED', approvedAt: new Date() };
 }
 
@@ -26,7 +26,7 @@ function signToken(user) {
 
 exports.signUp = async (req, res, next) => {
   try {
-    const role = normalizeRole(req.body.accountType || req.body.role);
+    const role = normalizeRole(req.body.role || req.body.accountType);
     const approval = approvalForRole(role);
     const user = await User.create({
       name: req.body.name || [req.body.firstName, req.body.lastName].filter(Boolean).join(' '),
@@ -41,14 +41,6 @@ exports.signUp = async (req, res, next) => {
       workZone: req.body.workZone,
     });
     const safeUser = user.toSafeObject();
-    if (role === 'ADMIN') {
-      return res.status(201).json({
-        success: true,
-        message: 'Your admin request is pending approval by an existing administrator.',
-        data: { user: safeUser },
-        user: safeUser,
-      });
-    }
     const token = signToken(user);
     return res.status(201).json({
       success: true,
